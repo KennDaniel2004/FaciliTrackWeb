@@ -1,0 +1,86 @@
+.ft-card--forgot {
+  max-width: 420px;
+  border: 2px solid rgba(30, 58, 171, 0.3);
+}
+
+
+.ft-card__title--forgot {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  margin-bottom: 6px;
+}
+
+
+.ft-forgot-desc {
+  font-size: 13.5px;
+  color: var(--gray-text);
+  margin-bottom: 18px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+
+.ft-code-input {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.ft-code-input::placeholder {
+  font-size: 14px;
+  letter-spacing: 1px;
+  font-weight: 400;
+}
+
+
+.ft-resend {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--gray-text);
+}
+
+.ft-resend a {
+  color: var(--blue-main);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ft-resend a:hover {
+  text-decoration: underline;
+}
+
+
+.ft-verify-login-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+  padding-bottom: 40px;
+}
+
+.ft-btn--outline {
+  width: 200px;
+  background: var(--blue-btn);
+  color: var(--white);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ft-btn--outline:hover {
+  background: var(--blue-hover);
+  box-shadow: 0 6px 20px rgba(26, 79, 214, 0.28);
+}

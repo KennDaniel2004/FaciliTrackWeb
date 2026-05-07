@@ -1,0 +1,43 @@
+
+.ft-main--register {
+  align-items: flex-start;
+  padding-top: 110px;
+  padding-bottom: 60px;
+}
+
+.ft-card--register {
+  max-width: 520px;
+  padding: 36px 36px 32px;
+  border: 2px solid rgba(30, 58, 171, 0.35);
+}
+
+.ft-card__title--register {
+  letter-spacing: 0.5px;
+  text-transform: none;
+  font-size: 28px;
+  margin-bottom: 18px;
+}
+
+.ft-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ft-btn--register {
+  margin-top: 10px;
+  letter-spacing: 1px;
+}
+
+
+@media (max-width: 520px) {
+  .ft-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .ft-card--register {
+    margin: 0 12px;
+    padding: 28px 20px 24px;
+  }
+}

@@ -1,0 +1,972 @@
+/* =============================================
+   FaciliTrack – Requests Panel Styles
+   User/request.css  (loads after dashboard.css)
+   ============================================= */
+
+/* ============================================================
+   PAGE LAYOUT
+   ============================================================ */
+.req-page {
+  padding: 24px 28px;
+  min-height: calc(100vh - var(--topbar-h));
+  background: var(--gray-bg);
+}
+
+/* ============================================================
+   PAGE HEADER ROW (Title + Search)
+   ============================================================ */
+.req-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.req-page-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+.req-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1.5px solid var(--gray-border);
+  border-radius: 30px;
+  padding: 10px 18px;
+  min-width: 220px;
+  flex: 1;
+  max-width: 360px;
+}
+.req-search-wrap svg    { flex-shrink: 0; stroke: #aaa; }
+.req-search-wrap input  {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-dark);
+  width: 100%;
+}
+.req-search-wrap input::placeholder { color: #bbb; }
+
+/* ============================================================
+   TABLE WRAPPER
+   ============================================================ */
+.req-table-wrap {
+  background: var(--white);
+  border: 1.5px solid var(--gray-border);
+  border-radius: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+.req-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 600px;
+}
+
+.req-table thead tr {
+  border-bottom: 1.5px solid var(--gray-border);
+}
+
+.req-table th {
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-mid);
+  background: var(--white);
+  white-space: nowrap;
+}
+
+.req-table td {
+  padding: 13px 16px;
+  color: var(--text-dark);
+  vertical-align: middle;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.req-table tbody tr:last-child td { border-bottom: none; }
+
+.req-table tbody tr {
+  transition: background .15s;
+}
+.req-table tbody tr:hover { background: #f7f8fc; }
+
+/* Action column specific */
+.req-table th:last-child,
+.req-table td:last-child {
+  text-align: center;
+  padding: 13px 8px;
+  width: 140px;
+  min-width: 140px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   ACTION BUTTONS (3 buttons in one row)
+   ============================================================ */
+.req-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.req-action-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.req-action-icon svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.req-action-icon:hover {
+  transform: scale(1.05);
+}
+
+.req-action-icon:active {
+  transform: scale(0.95);
+}
+
+/* Approve button */
+.req-action-icon--approve {
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.req-action-icon--approve:hover {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* Reject button */
+.req-action-icon--reject {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.req-action-icon--reject:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* View button */
+.req-action-icon--view {
+  color: var(--blue-main);
+  background: #eff2fd;
+}
+
+.req-action-icon--view:hover {
+  background: var(--blue-light);
+  color: #1e3a8a;
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.req-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 70px 20px;
+}
+
+.req-empty-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #bbb;
+}
+
+/* ============================================================
+   MODALS — shared base
+   ============================================================ */
+.req-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.req-modal.hidden { display: none; }
+
+.req-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.req-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  background: var(--white);
+  border-radius: 20px;
+  padding: 40px 32px 32px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+  text-align: center;
+  animation: modalIn .22s cubic-bezier(.4,0,.2,1);
+  z-index: 1;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
+/* Back / Close button */
+.req-modal-back {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--blue-main);
+  display: flex;
+  align-items: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background .2s;
+}
+.req-modal-back:hover { background: var(--blue-light); }
+
+/* Title */
+.req-modal-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0 0 22px;
+}
+
+/* Details section */
+.req-modal-details {
+  background: #f8f9fc;
+  border: 1.5px solid var(--gray-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  text-align: left;
+  margin-bottom: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.req-detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 2px;
+}
+.req-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+}
+.req-detail-value:last-child { margin-bottom: 0; }
+
+/* Action buttons inside modals */
+.req-modal-action-btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 40px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s, transform .1s;
+}
+.req-modal-action-btn:active { transform: scale(.98); }
+
+.req-modal-action-btn--approve {
+  background: var(--blue-main);
+  color: #fff;
+}
+.req-modal-action-btn--approve:hover {
+  background: var(--blue-btn);
+  box-shadow: 0 4px 16px rgba(30,58,171,.3);
+}
+
+.req-modal-action-btn--reject {
+  background: #dc2626;
+  color: #fff;
+}
+.req-modal-action-btn--reject:hover {
+  background: #b91c1c;
+  box-shadow: 0 4px 16px rgba(220,38,38,.3);
+}
+
+/* ============================================================
+   REJECTION REASON FIELD (Improved Responsive)
+   ============================================================ */
+.req-reason-field {
+  text-align: left;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.req-reason-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-mid);
+  margin-bottom: 8px;
+}
+
+.req-reason-textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--gray-border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-dark);
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  background: #fafafa;
+  transition: border-color .2s, box-shadow .2s;
+  box-sizing: border-box;
+}
+.req-reason-textarea:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.1);
+  background: var(--white);
+}
+.req-reason-textarea::placeholder { color: #ccc; }
+
+/* ============================================================
+   CONFIRM ACTION MODAL (Responsive for Reject)
+   ============================================================ */
+.req-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.req-confirm-modal.hidden { display: none; }
+
+.req-confirm-card {
+  position: relative;
+  background: var(--white);
+  border-radius: 18px;
+  padding: 36px 28px 28px;
+  max-width: 90%;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+  animation: modalIn .2s cubic-bezier(.4,0,.2,1);
+  z-index: 1;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.req-confirm-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 auto 14px;
+  flex-shrink: 0;
+}
+.req-confirm-icon.approve-icon { background: #dcfce7; color: #16a34a; }
+.req-confirm-icon.reject-icon  { background: #fee2e2; color: #dc2626; }
+
+.req-confirm-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-dark);
+  margin: 0 0 8px;
+}
+
+.req-confirm-msg {
+  font-size: 13px;
+  color: var(--text-mid);
+  margin: 0 0 22px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.req-confirm-btns {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.req-confirm-btn {
+  flex: 1;
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s;
+  white-space: nowrap;
+}
+
+.req-confirm-btn--cancel {
+  background: #f3f4f6;
+  color: var(--text-mid);
+}
+.req-confirm-btn--cancel:hover { background: #e5e7eb; }
+
+.req-confirm-btn--ok {
+  color: #fff;
+}
+.req-confirm-btn--ok.approve-ok { background: #16a34a; }
+.req-confirm-btn--ok.approve-ok:hover { background: #15803d; box-shadow: 0 4px 12px rgba(22,163,74,.3); }
+.req-confirm-btn--ok.reject-ok  { background: #dc2626; }
+.req-confirm-btn--ok.reject-ok:hover  { background: #b91c1c; box-shadow: 0 4px 12px rgba(220,38,38,.3); }
+
+/* ============================================================
+   STATUS BADGE
+   ============================================================ */
+.req-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.req-status-badge--pending  { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
+.req-status-badge--approved { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.req-status-badge--rejected { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+/* ============================================================
+   RESPONSIVE DESIGN - Improved for PC and Mobile
+   ============================================================ */
+
+/* Tablet and Small Desktop */
+@media (max-width: 1024px) {
+  .req-confirm-card {
+    max-width: 380px;
+    padding: 32px 24px 24px;
+  }
+  
+  .req-confirm-msg {
+    font-size: 12px;
+  }
+  
+  .req-confirm-btn {
+    padding: 10px;
+    font-size: 12px;
+  }
+}
+
+/* Mobile Landscape */
+@media (max-width: 768px) {
+  .req-page { padding: 16px; }
+  .req-header-row { flex-direction: column; align-items: flex-start; }
+  .req-search-wrap { max-width: 100%; }
+  
+  /* Hide less important columns on mobile */
+  .req-table th:nth-child(3),
+  .req-table td:nth-child(3) {
+    display: none;
+  }
+  
+  .req-table {
+    min-width: 500px;
+  }
+  
+  .req-table th,
+  .req-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .req-table th:last-child,
+  .req-table td:last-child {
+    padding: 10px 6px;
+    width: 120px;
+    min-width: 120px;
+  }
+  
+  .req-actions {
+    gap: 6px;
+  }
+  
+  .req-action-icon {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+  
+  .req-action-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Modal responsive for mobile */
+  .req-modal-card {
+    padding: 32px 20px 24px;
+    max-width: 90%;
+    width: 90%;
+  }
+  
+  .req-modal-details {
+    padding: 14px 16px;
+    max-height: 50vh;
+  }
+  
+  .req-detail-value {
+    font-size: 13px;
+  }
+  
+  /* Confirm Modal responsive */
+  .req-confirm-card {
+    max-width: 90%;
+    width: 90%;
+    padding: 28px 20px 20px;
+    margin: 0 16px;
+  }
+  
+  .req-confirm-title {
+    font-size: 15px;
+  }
+  
+  .req-confirm-msg {
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  
+  .req-confirm-btns {
+    gap: 8px;
+  }
+  
+  .req-confirm-btn {
+    padding: 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* Mobile Portrait */
+@media (max-width: 480px) {
+  .req-table th:nth-child(4),
+  .req-table td:nth-child(4) {
+    display: none;
+  }
+  
+  .req-table {
+    min-width: 360px;
+  }
+  
+  .req-table th:last-child,
+  .req-table td:last-child {
+    width: 100px;
+    min-width: 100px;
+    padding: 8px 4px;
+  }
+  
+  .req-actions {
+    gap: 4px;
+  }
+  
+  .req-action-icon {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+  }
+  
+  .req-action-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  /* Small mobile modals */
+  .req-modal-card {
+    padding: 28px 16px 20px;
+    max-width: 95%;
+    width: 95%;
+  }
+  
+  .req-modal-title {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .req-modal-details {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+  
+  .req-detail-label {
+    font-size: 10px;
+  }
+  
+  .req-detail-value {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .req-modal-action-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  /* Confirm modal for small mobile */
+  .req-confirm-card {
+    padding: 24px 16px 20px;
+    max-width: 95%;
+    width: 95%;
+  }
+  
+  .req-confirm-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+  }
+  
+  .req-confirm-title {
+    font-size: 14px;
+  }
+  
+  .req-confirm-msg {
+    font-size: 11px;
+    margin-bottom: 18px;
+  }
+  
+  .req-confirm-btns {
+    gap: 6px;
+  }
+  
+  .req-confirm-btn {
+    padding: 8px;
+    font-size: 11px;
+  }
+  
+  .req-reason-textarea {
+    min-height: 80px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  
+  .req-reason-label {
+    font-size: 12px;
+  }
+}
+
+/* Extra Small Devices */
+@media (max-width: 380px) {
+  .req-confirm-card {
+    padding: 20px 12px 16px;
+  }
+  
+  .req-confirm-btns {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .req-confirm-btn {
+    width: 100%;
+    padding: 10px;
+  }
+  
+  .req-actions {
+    gap: 3px;
+  }
+  
+  .req-action-icon {
+    width: 26px;
+    height: 26px;
+    padding: 3px;
+  }
+  
+  .req-action-icon svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+/* Large Desktop Fixes */
+@media (min-width: 1400px) {
+  .req-confirm-card {
+    max-width: 420px;
+  }
+  
+  .req-modal-card {
+    max-width: 450px;
+  }
+}
+
+/* ============================================================
+   SKELETAL LOADING STYLES
+   ============================================================ */
+
+/* Skeleton base animation */
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Table skeleton */
+.req-table-skeleton {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.req-table-skeleton th,
+.req-table-skeleton td {
+  padding: 13px 16px;
+}
+
+.skeleton-cell {
+  height: 20px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e8e8e8 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.skeleton-cell-text {
+  width: 80%;
+  height: 16px;
+}
+
+.skeleton-cell-short {
+  width: 60%;
+  height: 16px;
+}
+
+.skeleton-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.skeleton-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e8e8e8 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Modal skeleton */
+.skeleton-modal-details {
+  background: #f8f9fc;
+  border: 1.5px solid var(--gray-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.skeleton-detail-row {
+  margin-bottom: 16px;
+}
+
+.skeleton-detail-label {
+  width: 40%;
+  height: 11px;
+  margin-bottom: 8px;
+}
+
+.skeleton-detail-value {
+  width: 70%;
+  height: 14px;
+}
+
+.skeleton-detail-value-full {
+  width: 90%;
+  height: 14px;
+}
+
+.skeleton-textarea {
+  width: 100%;
+  height: 90px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.skeleton-button {
+  width: 100%;
+  height: 48px;
+  border-radius: 40px;
+}
+
+/* Skeleton overlay for initial load */
+.skeleton-overlay {
+  position: relative;
+}
+
+.skeleton-overlay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skeleton-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid var(--blue-main);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Loading state for table rows */
+.loading-row {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* Skeleton for empty state */
+.skeleton-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 70px 20px;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+}
+
+.skeleton-empty-text {
+  width: 200px;
+  height: 20px;
+}
+
+/* Badge skeleton */
+.skeleton-badge {
+  width: 40px;
+  height: 20px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+/* Responsive skeleton */
+@media (max-width: 768px) {
+  .skeleton-icon {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .skeleton-button {
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .skeleton-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .skeleton-button {
+    height: 40px;
+  }
+  
+  .skeleton-textarea {
+    height: 80px;
+  }
+}

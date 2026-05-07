@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaciliTrack – Login</title>
+  <link rel="stylesheet" href="auth.login.css" />
+</head>
+<body>
+
+ 
+  <header class="ft-header">
+    <div class="ft-header__top">
+      Iloilo State University of Fisheries Science and Technology | Main Campus
+    </div>
+    <div class="ft-header__main">
+      <div class="ft-brand">
+        <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-brand__logo" />
+        <span class="ft-brand__name">FaciliTrack</span>
+      </div>
+      <nav class="ft-nav">
+        <a href="auth.login.html" class="ft-nav__link active" id="nav-login">Login</a>
+        <a href="auth.register.html" class="ft-nav__link" id="nav-register">Register</a>
+      </nav>
+    </div>
+  </header>
+
+
+  <main class="ft-main">
+    <div class="ft-card" id="login-card">
+      <div class="ft-card__logo-wrap">
+        <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-card__logo" />
+      </div>
+      <h1 class="ft-card__title">LOGIN</h1>
+      <div id="login-status" class="ft-status" role="alert" aria-live="polite"></div>
+
+      <div class="ft-field">
+        <label for="login-username" class="ft-field__label">Username</label>
+        <input type="text" id="login-username" class="ft-field__input"
+               placeholder="Enter your username" autocomplete="username" />
+      </div>
+
+      <div class="ft-field">
+        <label for="login-password" class="ft-field__label">Password</label>
+        <div class="ft-field__pw-wrap">
+          <input type="password" id="login-password" class="ft-field__input"
+                 placeholder="Enter your password" autocomplete="current-password" />
+          <button type="button" class="ft-field__eye" id="toggle-password" aria-label="Toggle password">
+            <svg id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="ft-forgot">
+        <a href="#" id="go-forgot">Forgot Password?</a>
+      </div>
+
+      <button class="ft-btn" id="login-btn">Login</button>
+
+      <p class="ft-card__alt">
+        No account yet? <a href="auth.register.html" id="go-register">Register here</a>
+      </p>
+    </div>
+  </main>
+
+
+  <div id="ft-modal-overlay" class="ft-modal-overlay" style="display:none;">
+
+ 
+    <div class="ft-modal-logo-wrap">
+      <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-modal-logo" />
+    </div>
+
+    
+    <!--  Sending / Verify Code  -->
+
+
+
+    <div id="modal-verify" class="ft-modal">
+      <div id="verify-status" class="ft-modal-status" role="alert" aria-live="polite"></div>
+
+      <div class="ft-field">
+        <input type="text" id="verify-code" class="ft-field__input ft-code-input"
+               placeholder="Enter 8-digit verification code"
+               maxlength="8" inputmode="numeric" autocomplete="one-time-code" />
+      </div>
+
+      <button class="ft-btn" id="verify-btn">Verify</button>
+
+      <div id="resend-wrap" class="ft-resend" style="display:none;">
+        <span id="resend-timer"></span>
+        <a href="#" id="resend-link" style="display:none;">Resend Code</a>
+      </div>
+    </div>
+
+
+    <div id="modal-reset" class="ft-modal" style="display:none;">
+      <div class="ft-modal-title">Reset Password</div>
+      <div id="reset-status" class="ft-modal-status" role="alert" aria-live="polite"></div>
+
+      <div class="ft-field">
+        <label class="ft-field__label">New Username</label>
+        <input type="text" id="reset-username" class="ft-field__input"
+               placeholder="Enter new username" autocomplete="username" />
+      </div>
+
+      <div class="ft-field">
+        <label class="ft-field__label">New Password</label>
+        <div class="ft-field__pw-wrap">
+          <input type="password" id="reset-password" class="ft-field__input"
+                 placeholder="Enter new password" autocomplete="new-password" />
+          <button type="button" class="ft-field__eye" id="toggle-reset-pw" aria-label="Toggle password">
+            <svg id="eye-reset-pw" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="ft-field">
+        <label class="ft-field__label">Confirm Password</label>
+        <div class="ft-field__pw-wrap">
+          <input type="password" id="reset-confirm" class="ft-field__input"
+                 placeholder="Re-enter new password" autocomplete="new-password" />
+          <button type="button" class="ft-field__eye" id="toggle-reset-confirm" aria-label="Toggle confirm">
+            <svg id="eye-reset-confirm" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"></svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="ft-btn" id="change-btn">Change</button>
+    </div>
+
+ 
+    <div class="ft-modal-bottom">
+      <button class="ft-btn ft-btn--modal-login" id="modal-login-btn">Login</button>
+    </div>
+
+  </div>
+
+  <script type="module" src="auth.login.js"></script>
+</body>
+</html>
