@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaciliTrack – Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+
+  <!-- Topbar Header -->
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" id="hamburger" aria-label="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-brand">
+        <img src="../Images/logo.png" alt="FaciliTrack" class="topbar-logo" />
+        <span class="topbar-name">FaciliTrack</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-action-btn" id="topbar-expand" type="button" title="Fullscreen">
+        <span class="action-icon">⛶</span>
+      </button>
+      <div class="topbar-profile" id="profile-trigger">
+        <span class="topbar-fullname" id="topbar-fullname">Full name</span>
+        <div class="topbar-avatar" id="topbar-avatar">FT</div>
+        <div class="dropdown-menu" id="dropdown-menu">
+          <button id="logout-btn">🚪 Logout</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  
+  <div class="dash-layout" id="dash-layout">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar" id="sidebar">
+      
+      <!-- SCHEDULE SECTION WITH ARROW ICON (NO STROKE) -->
+      <a href="#" class="nav-item nav-parent" data-panel="panel-schedule">
+        <div class="nav-icon-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Schedule
+        </div>
+        <span class="nav-arrow-icon">
+          <img src="https://cdn-icons-png.flaticon.com/512/130/130882.png" 
+               alt="toggle" 
+               class="schedule-arrow">
+        </span>
+      </a>
+      <div class="nav-submenu">
+        <a href="#" class="nav-item nav-child" data-panel="panel-legalholiday">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+            <path d="M9 12h6"/>
+          </svg>
+          Legal Holiday
+        </a>
+      </div>
+
+      <!-- REQUESTS -->
+      <a href="../Requests/request.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        Requests
+        <span class="nav-badge" id="requests-badge" style="display:none;">0</span>
+      </a>
+
+      <!-- USER'S -->
+      <a href="../User/user.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+        User's
+      </a>
+
+      <!-- CHANGE STATS -->
+      <a href="../ChangeStats/change.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Change Stats
+      </a>
+
+      <!-- HISTORY -->
+      <a href="../History/history.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="12 8 12 12 14 14"/>
+          <path d="M3.05 11a9 9 0 1 0 .5-4.5"/>
+          <polyline points="3 3 3 8 8 8"/>
+        </svg>
+        History
+      </a>
+
+      <!-- MONITORING -->
+      <a href="../Monitoring/monitoring.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        Monitoring
+      </a>
+    </nav>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="dash-main" id="dash-main">
+
+      <!-- ===== SCHEDULE PANEL ===== -->
+      <div id="panel-schedule" class="panel">
+        <div class="schedule-wrapper">
+
+          <!-- Calendar Toolbar -->
+          <div class="cal-toolbar">
+            <div class="cal-toolbar-left">
+              <span class="cal-label" id="cal-date-label">Date</span>
+              <span class="cal-label" id="cal-year-label">Year</span>
+              <span class="cal-label" id="cal-time-label">Actual Time</span>
+            </div>
+            <div class="cal-toolbar-right">
+              <div class="cal-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="cal-search" placeholder="Search Events" />
+              </div>
+              <div class="cal-nav-group">
+                <button class="cal-nav-btn" id="cal-prev" aria-label="Previous"><span>&#8249;</span></button>
+                <button class="cal-nav-btn cal-today-btn" id="cal-today" aria-label="Today">Today</button>
+                <button class="cal-nav-btn" id="cal-next" aria-label="Next"><span>&#8250;</span></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Month/Year Header -->
+          <div class="cal-month-header" id="cal-month-header"></div>
+
+          <!-- Calendar Grid -->
+          <div class="cal-grid-header">
+            <div>Sun</div><div>Mon</div><div>Tue</div>
+            <div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+        </div>
+      </div>
+
+      <!-- ===== LEGAL HOLIDAY PANEL ===== -->
+      <div id="panel-legalholiday" class="panel hidden">
+        <div class="inner-page">
+          <h1 class="page-title">Legal Holiday</h1>
+          <p class="page-placeholder">Official legal holidays recognized in the Philippines.</p>
+          <div class="holidays-grid">
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">January 1</div>
+              <div class="holiday-name">New Year's Day</div>
+              <div class="holiday-description">Celebrates the first day of the Gregorian calendar year. A time for new beginnings, resolutions, and family gatherings.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">April 9</div>
+              <div class="holiday-name">Araw ng Kagitingan</div>
+              <div class="holiday-description">Commemorates the heroism and bravery of Filipino soldiers during World War II, particularly the Battle of Bataan.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">May 1</div>
+              <div class="holiday-name">Labor Day</div>
+              <div class="holiday-description">Honors the working class and their contributions to society. Workers are given a day of rest and various celebrations are held.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">June 12</div>
+              <div class="holiday-name">Independence Day</div>
+              <div class="holiday-description">Marks the declaration of Philippine independence from Spain in 1898. Features parades, fireworks, and patriotic celebrations.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">July 4</div>
+              <div class="holiday-name">Philippine-American Friendship Day</div>
+              <div class="holiday-description">Commemorates the anniversary of the Philippine-American Friendship Treaty and the establishment of diplomatic relations.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">July 30</div>
+              <div class="holiday-name">Ninoy Aquino Day</div>
+              <div class="holiday-description">Honors Senator Benigno 'Ninoy' Aquino Jr., a key figure in the fight against the Marcos dictatorship who was assassinated in 1983.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">November 30</div>
+              <div class="holiday-name">Bonifacio Day</div>
+              <div class="holiday-description">Celebrates the birth anniversary of Andres Bonifacio, founder of the Katipunan and a key figure in the Philippine Revolution.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">December 25</div>
+              <div class="holiday-name">Christmas Day</div>
+              <div class="holiday-description">Celebrates the birth of Jesus Christ. Filipinos observe this with Simbang Gabi, parol lanterns, and family reunions.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type regular">Regular Holiday</div>
+              <div class="holiday-date">December 30</div>
+              <div class="holiday-name">Rizal Day</div>
+              <div class="holiday-description">Commemorates the execution of Dr. Jose Rizal, national hero, on December 30, 1896. A day of reflection on nationalism and patriotism.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type special">Special Non-Working</div>
+              <div class="holiday-date">November 1</div>
+              <div class="holiday-name">All Saints' Day</div>
+              <div class="holiday-description">A day to honor deceased loved ones. Families visit cemeteries, clean graves, and hold prayers for the souls of the departed.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type special">Special Non-Working</div>
+              <div class="holiday-date">November 2</div>
+              <div class="holiday-name">All Souls' Day</div>
+              <div class="holiday-description">Commemorates all the faithful departed. Similar to All Saints' Day, families pray for the souls in purgatory.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type special">Special Non-Working</div>
+              <div class="holiday-date">December 26</div>
+              <div class="holiday-name">Christmas Day (Observed)</div>
+              <div class="holiday-description">Observed holiday when Christmas Day falls on a weekend, extending the celebration.</div>
+            </div>
+            <div class="holiday-card">
+              <div class="holiday-type special">Special Non-Working</div>
+              <div class="holiday-date">December 31</div>
+              <div class="holiday-name">Rizal Day (Observed)</div>
+              <div class="holiday-description">Observed holiday when Rizal Day falls on a weekend, preserving the national hero commemoration.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CHANGE STATS PANEL ===== -->
+      <div id="panel-changestats" class="panel hidden">
+        <div class="inner-page">
+          <h1 class="page-title">Change Stats</h1>
+          <p class="page-placeholder">Change Stats panel — coming soon.</p>
+        </div>
+      </div>
+
+      <!-- ===== HISTORY PANEL ===== -->
+      <div id="panel-history" class="panel hidden">
+        <div class="inner-page">
+          <h1 class="page-title">History</h1>
+          <p class="page-placeholder">History panel — coming soon.</p>
+        </div>
+      </div>
+
+      <!-- ===== MONITORING PANEL ===== -->
+      <div id="panel-monitoring" class="panel hidden">
+        <div class="inner-page">
+          <h1 class="page-title">Monitoring</h1>
+          <p class="page-placeholder">Monitoring panel — coming soon.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ===== EVENT INFO POPUP ===== -->
+  <div id="event-popup" class="event-popup hidden">
+    <div class="event-popup__header">
+      <span>Events Information</span>
+      <button id="event-popup-close" class="event-popup__close">&#x2715;</button>
+    </div>
+    <div class="event-popup__body" id="event-popup-body"></div>
+  </div>
+  <div id="event-popup-overlay" class="event-popup-overlay hidden"></div>
+
+  <!-- ===== LOGOUT MODAL ===== -->
+  <div id="logout-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-container">
+      <div class="modal-header"><h3>Confirm Logout</h3></div>
+      <div class="modal-body"><p>Are you sure you want to logout?</p></div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel-btn" id="modal-cancel">Cancel</button>
+        <button class="modal-btn confirm-btn" id="modal-confirm">Logout</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>

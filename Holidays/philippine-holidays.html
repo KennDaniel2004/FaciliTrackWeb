@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Philippine Holidays - FaciliTrack</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .holidays-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .holidays-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .year-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .year-selector button {
+            background: var(--blue-main);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .year-selector button:hover {
+            background: var(--blue-dark);
+            transform: scale(1.05);
+        }
+
+        .current-year {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--blue-main);
+            background: var(--blue-light);
+            padding: 8px 24px;
+            border-radius: 40px;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        .holidays-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .holiday-card {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.1);
+            transition: transform .2s, box-shadow .2s;
+        }
+
+        .holiday-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,.15);
+        }
+
+        .holiday-date {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .holiday-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--blue-main);
+            margin-bottom: 12px;
+        }
+
+        .holiday-description {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-mid);
+        }
+
+        .holiday-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .holiday-type.regular {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .holiday-type.special {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .holiday-type.religious {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .holiday-type.movable {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: var(--blue-main);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--blue-dark);
+            transform: translateX(-3px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: var(--text-mid);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--gray-border);
+            border-top-color: var(--blue-main);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .holidays-stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: var(--white);
+            padding: 12px 24px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid var(--gray-border);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--blue-main);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-mid);
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .holidays-grid {
+                grid-template-columns: 1fr;
+            }
+            .year-selector .current-year {
+                font-size: 18px;
+                padding: 6px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="../HomeDashboard/dashboard.html" class="back-btn">
+        ← Back to Dashboard
+    </a>
+
+    <div class="holidays-container">
+        <div class="holidays-header">
+            <h1>Philippine Holidays</h1>
+            <p>Official holidays for the current year - Updated dynamically</p>
+        </div>
+
+        <div class="year-selector">
+            <button id="prev-year" aria-label="Previous Year">‹</button>
+            <div class="current-year" id="current-year">2024</div>
+            <button id="next-year" aria-label="Next Year">›</button>
+        </div>
+
+        <div class="holidays-stats" id="holidays-stats">
+            <div class="stat-card">
+                <div class="stat-number" id="regular-count">0</div>
+                <div class="stat-label">Regular Holidays</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="special-count">0</div>
+                <div class="stat-label">Special Holidays</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="total-count">0</div>
+                <div class="stat-label">Total Holidays</div>
+            </div>
+        </div>
+
+        <div class="holidays-grid" id="holidays-grid">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                Loading holidays...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dynamic holiday calculator for Philippine holidays
+        class PhilippineHolidays {
+            constructor(year) {
+                this.year = year;
+            }
+
+            // Calculate Easter Sunday (using Computus algorithm)
+            getEasterSunday() {
+                const a = this.year % 19;
+                const b = Math.floor(this.year / 100);
+                const c = this.year % 100;
+                const d = Math.floor(b / 4);
+                const e = b % 4;
+                const f = Math.floor((b + 8) / 25);
+                const g = Math.floor((b - f + 1) / 3);
+                const h = (19 * a + b - d - g + 15) % 30;
+                const i = Math.floor(c / 4);
+                const k = c % 4;
+                const l = (32 + 2 * e + 2 * i - h - k) % 7;
+                const m = Math.floor((a + 11 * h + 22 * l) / 451);
+                const month = Math.floor((h + l - 7 * m + 114) / 31);
+                const day = ((h + l - 7 * m + 114) % 31) + 1;
+                return new Date(this.year, month - 1, day);
+            }
+
+            // Get Holy Week dates
+            getHolyWeek() {
+                const easter = this.getEasterSunday();
+                return {
+                    maundyThursday: new Date(easter.getTime() - 3 * 24 * 60 * 60 * 1000),
+                    goodFriday: new Date(easter.getTime() - 2 * 24 * 60 * 60 * 1000),
+                    blackSaturday: new Date(easter.getTime() - 1 * 24 * 60 * 60 * 1000),
+                    easterSunday: easter
+                };
+            }
+
+            // Check if date is a weekend
+            isWeekend(date) {
+                const day = date.getDay();
+                return day === 0 || day === 6;
+            }
+
+            // Get adjusted date for holiday (if falls on weekend)
+            getAdjustedDate(month, day, name) {
+                const date = new Date(this.year, month - 1, day);
+                const dayOfWeek = date.getDay();
+                
+                // If holiday falls on Sunday, observe on Monday
+                if (dayOfWeek === 0) {
+                    const adjusted = new Date(this.year, month - 1, day + 1);
+                    return { date, observedDate: adjusted, needsAdjustment: true };
+                }
+                // If holiday falls on Saturday, observe on Friday? No, usually Monday or no adjustment
+                return { date, observedDate: date, needsAdjustment: false };
+            }
+
+            // Get Chinese New Year (simplified - between Jan 21 and Feb 20)
+            getChineseNewYear() {
+                // Simplified calculation - in production, use actual lunar calendar API
+                const chineseNewYearDates = {
+                    2024: { month: 2, day: 10 },
+                    2025: { month: 1, day: 29 },
+                    2026: { month: 2, day: 17 },
+                    2027: { month: 2, day: 6 },
+                    2028: { month: 1, day: 26 },
+                    2029: { month: 2, day: 13 },
+                    2030: { month: 2, day: 3 }
+                };
+                return chineseNewYearDates[this.year] || { month: 2, day: 10 };
+            }
+
+            // Get Eid'l Fitr (simplified - actual dates vary based on moon sighting)
+            getEidlFitr() {
+                // Approximate dates - actual dates depend on moon sighting
+                const eidDates = {
+                    2024: { month: 4, day: 10 },
+                    2025: { month: 3, day: 31 },
+                    2026: { month: 3, day: 20 },
+                    2027: { month: 3, day: 10 },
+                    2028: { month: 2, day: 28 },
+                    2029: { month: 2, day: 17 },
+                    2030: { month: 2, day: 6 }
+                };
+                return eidDates[this.year] || { month: 4, day: 10 };
+            }
+
+            // Get All Holidays for the year
+            getAllHolidays() {
+                const holyWeek = this.getHolyWeek();
+                const chineseNewYear = this.getChineseNewYear();
+                const eidlFitr = this.getEidlFitr();
+
+                // Regular Holidays (fixed dates)
+                const regularHolidays = [
+                    { name: "New Year's Day", month: 1, day: 1, type: "regular", 
+                      description: "Celebrates the first day of the Gregorian calendar year. A time for new beginnings, resolutions, and family gatherings." },
+                    { name: "Araw ng Kagitingan", month: 4, day: 9, type: "regular", 
+                      description: "Commemorates the heroism and bravery of Filipino soldiers during World War II, particularly the Battle of Bataan." },
+                    { name: "Labor Day", month: 5, day: 1, type: "regular", 
+                      description: "Honors the working class and their contributions to society. Workers are given a day of rest and various celebrations are held." },
+                    { name: "Independence Day", month: 6, day: 12, type: "regular", 
+                      description: "Marks the declaration of Philippine independence from Spain in 1898. Features parades, fireworks, and patriotic celebrations." },
+                    { name: "Ninoy Aquino Day", month: 8, day: 21, type: "regular", 
+                      description: "Honors Senator Benigno 'Ninoy' Aquino Jr., a key figure in the fight against the Marcos dictatorship who was assassinated in 1983." },
+                    { name: "Bonifacio Day", month: 11, day: 30, type: "regular", 
+                      description: "Celebrates the birth anniversary of Andres Bonifacio, founder of the Katipunan and a key figure in the Philippine Revolution." },
+                    { name: "Christmas Day", month: 12, day: 25, type: "regular", 
+                      description: "Celebrates the birth of Jesus Christ. Filipinos observe this with Simbang Gabi, parol lanterns, and family reunions." },
+                    { name: "Rizal Day", month: 12, day: 30, type: "regular", 
+                      description: "Commemorates the execution of Dr. Jose Rizal, national hero, on December 30, 1896. A day of reflection on nationalism and patriotism." }
+                ];
+
+                // Special Non-Working Holidays
+                const specialHolidays = [
+                    { name: "Chinese New Year", month: chineseNewYear.month, day: chineseNewYear.day, type: "special", 
+                      description: "Celebrates the Lunar New Year according to the Chinese calendar. Filipinos of Chinese descent participate in lion dances, fireworks, and family feasts.", movable: true },
+                    { name: "Eid'l Fitr", month: eidlFitr.month, day: eidlFitr.day, type: "special", 
+                      description: "Marks the end of Ramadan, the Islamic holy month of fasting. Muslims celebrate with prayers, feasting, and charitable giving.", movable: true },
+                    { name: "All Saints' Day", month: 11, day: 1, type: "special", 
+                      description: "A day to honor deceased loved ones. Families visit cemeteries, clean graves, and hold prayers for the souls of the departed." },
+                    { name: "All Souls' Day", month: 11, day: 2, type: "special", 
+                      description: "Commemorates all the faithful departed. Similar to All Saints' Day, families pray for the souls in purgatory." },
+                    { name: "Feast of the Immaculate Conception", month: 12, day: 8, type: "special", 
+                      description: "A Catholic feast day celebrating the conception of the Virgin Mary. A special non-working holiday in the Philippines." },
+                    { name: "Last Day of the Year", month: 12, day: 31, type: "special", 
+                      description: "The last day of the year, celebrated with fireworks, parties, and countdowns to welcome the new year." }
+                ];
+
+                // Religious Holidays (Holy Week)
+                const religiousHolidays = [
+                    { name: "Maundy Thursday", month: holyWeek.maundyThursday.getMonth() + 1, day: holyWeek.maundyThursday.getDate(), type: "religious", 
+                      description: "Part of Holy Week, commemorating the Last Supper. Many businesses close and people prepare for the Easter celebrations.", movable: true },
+                    { name: "Good Friday", month: holyWeek.goodFriday.getMonth() + 1, day: holyWeek.goodFriday.getDate(), type: "religious", 
+                      description: "Most solemn day of Holy Week, commemorating the crucifixion of Jesus Christ. A day of fasting, prayer, and reflection.", movable: true },
+                    { name: "Black Saturday", month: holyWeek.blackSaturday.getMonth() + 1, day: holyWeek.blackSaturday.getDate(), type: "religious", 
+                      description: "The day before Easter Sunday, commemorating the time Jesus lay in the tomb. Many observe this with continued fasting.", movable: true }
+                ];
+
+                return [...regularHolidays, ...specialHolidays, ...religiousHolidays];
+            }
+
+            // Format date for display
+            formatDate(month, day) {
+                const date = new Date(this.year, month - 1, day);
+                return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            }
+
+            // Get month name
+            getMonthName(month) {
+                return new Date(this.year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+            }
+        }
+
+        // Current year
+        let currentYear = new Date().getFullYear();
+        let holidaysInstance = new PhilippineHolidays(currentYear);
+        let allHolidays = [];
+
+        // DOM Elements
+        const yearDisplay = document.getElementById('current-year');
+        const holidaysGrid = document.getElementById('holidays-grid');
+        const prevYearBtn = document.getElementById('prev-year');
+        const nextYearBtn = document.getElementById('next-year');
+        const regularCountEl = document.getElementById('regular-count');
+        const specialCountEl = document.getElementById('special-count');
+        const totalCountEl = document.getElementById('total-count');
+
+        // Function to render holidays
+        function renderHolidays() {
+            // Show loading
+            holidaysGrid.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading holidays...</div>';
+            
+            // Simulate slight delay for smooth transition
+            setTimeout(() => {
+                holidaysInstance = new PhilippineHolidays(currentYear);
+                allHolidays = holidaysInstance.getAllHolidays();
+                
+                // Sort by date
+                allHolidays.sort((a, b) => {
+                    if (a.month === b.month) return a.day - b.day;
+                    return a.month - b.month;
+                });
+                
+                // Update stats
+                const regularCount = allHolidays.filter(h => h.type === 'regular').length;
+                const specialCount = allHolidays.filter(h => h.type === 'special' || h.type === 'religious').length;
+                regularCountEl.textContent = regularCount;
+                specialCountEl.textContent = specialCount;
+                totalCountEl.textContent = allHolidays.length;
+                
+                // Render cards
+                holidaysGrid.innerHTML = '';
+                
+                allHolidays.forEach(holiday => {
+                    const card = document.createElement('div');
+                    card.className = 'holiday-card';
+                    
+                    const formattedDate = holidaysInstance.formatDate(holiday.month, holiday.day);
+                    const monthName = holidaysInstance.getMonthName(holiday.month);
+                    
+                    card.innerHTML = `
+                        <div class="holiday-type ${holiday.type}">${holiday.type === 'regular' ? 'Regular Holiday' : holiday.type === 'special' ? 'Special Non-Working' : 'Religious Holiday'}</div>
+                        <div class="holiday-date">${formattedDate}</div>
+                        <div class="holiday-name">${holiday.name}</div>
+                        <div class="holiday-description">${holiday.description}</div>
+                        ${holiday.movable ? '<div style="margin-top: 8px; font-size: 11px; color: #9a3412;"><i>📅 Movable date (changes yearly)</i></div>' : ''}
+                    `;
+                    holidaysGrid.appendChild(card);
+                });
+            }, 100);
+        }
+
+        // Year change handlers
+        prevYearBtn.addEventListener('click', () => {
+            currentYear--;
+            yearDisplay.textContent = currentYear;
+            renderHolidays();
+        });
+        
+        nextYearBtn.addEventListener('click', () => {
+            currentYear++;
+            yearDisplay.textContent = currentYear;
+            renderHolidays();
+        });
+        
+        // Initial render
+        yearDisplay.textContent = currentYear;
+        renderHolidays();
+    </script>
+</body>
+</html>

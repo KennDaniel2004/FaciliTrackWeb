@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaciliTrack – Verify Code</title>
+  <link rel="stylesheet" href="auth.login.css" />
+  <link rel="stylesheet" href="auth.forgot.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="ft-header">
+    <div class="ft-header__top">
+      Iloilo State University of Fisheries Science and Technology | Main Campus
+    </div>
+    <div class="ft-header__main">
+      <div class="ft-brand">
+        <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-brand__logo" />
+        <span class="ft-brand__name">FaciliTrack</span>
+      </div>
+      <nav class="ft-nav">
+        <a href="auth.login.html" class="ft-nav__link" id="nav-login">Login</a>
+        <a href="auth.register.html" class="ft-nav__link" id="nav-register">Register</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="ft-main">
+
+    <!-- STEP 1: Enter verification code -->
+    <div class="ft-card ft-card--forgot" id="card-verify">
+
+      <div class="ft-card__logo-wrap">
+        <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-card__logo" />
+      </div>
+
+      <h1 class="ft-card__title ft-card__title--forgot">Enter Verification Code</h1>
+      <p class="ft-forgot-desc">An 8-digit code was sent to your Gmail. Enter it below to change your password.</p>
+
+      <div id="verify-status" class="ft-status" role="alert" aria-live="polite"></div>
+
+      <div class="ft-field">
+        <label for="verify-code" class="ft-field__label">Verification Code</label>
+        <input
+          type="text"
+          id="verify-code"
+          class="ft-field__input ft-code-input"
+          placeholder="Enter 8-digit code"
+          maxlength="8"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+        />
+      </div>
+
+      <button class="ft-btn" id="verify-btn">Verify</button>
+
+      <p class="ft-card__alt">
+        <a href="auth.forgot.html">Back to Forgot Password</a>
+      </p>
+    </div>
+
+    <!-- STEP 2: Set new password (hidden until code verified) -->
+    <div class="ft-card ft-card--forgot" id="card-newpw" style="display:none;">
+
+      <div class="ft-card__logo-wrap">
+        <img src="../Images/logo.png" alt="FaciliTrack Logo" class="ft-card__logo" />
+      </div>
+
+      <h1 class="ft-card__title ft-card__title--forgot">Set New Password</h1>
+      <p class="ft-forgot-desc">Choose a strong new password for your account.</p>
+
+      <div id="newpw-status" class="ft-status" role="alert" aria-live="polite"></div>
+
+      <!-- New Password -->
+      <div class="ft-field">
+        <label for="new-password" class="ft-field__label">New Password</label>
+        <div class="ft-field__pw-wrap">
+          <input type="password" id="new-password" class="ft-field__input"
+                 placeholder="Enter new password" autocomplete="new-password" />
+          <button type="button" class="ft-field__eye" id="toggle-newpw" aria-label="Toggle password">
+            <svg id="eye-newpw" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Confirm New Password -->
+      <div class="ft-field">
+        <label for="confirm-password" class="ft-field__label">Confirm New Password</label>
+        <div class="ft-field__pw-wrap">
+          <input type="password" id="confirm-password" class="ft-field__input"
+                 placeholder="Re-enter new password" autocomplete="new-password" />
+          <button type="button" class="ft-field__eye" id="toggle-confirmpw" aria-label="Toggle confirm password">
+            <svg id="eye-confirmpw" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"></svg>
+          </button>
+        </div>
+      </div>
+
+      <button class="ft-btn" id="save-pw-btn">Save New Password</button>
+    </div>
+
+  </main>
+
+  <!-- Login button below card (matches screenshot) -->
+  <div class="ft-verify-login-wrap">
+    <a href="auth.login.html" class="ft-btn ft-btn--outline">Login</a>
+  </div>
+
+  <script type="module" src="auth.verify.js"></script>
+</body>
+</html>
