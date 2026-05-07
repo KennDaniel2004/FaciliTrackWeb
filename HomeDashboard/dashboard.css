@@ -26,12 +26,9 @@ html, body { height:100%; font-family:var(--font); background:var(--gray-bg); co
 html.expanded-fullscreen, body.expanded-fullscreen { height:100%; overflow:hidden; }
 html.expanded-fullscreen .dash-main { min-height: calc(100vh - var(--topbar-h)); }
 
-/* ── Utility ── */
 .hidden { display:none !important; }
 
-/* ============================================================
-   TOPBAR
-   ============================================================ */
+
 .topbar {
   position: fixed; top:0; left:0; right:0; z-index:200;
   height: var(--topbar-h);
@@ -111,9 +108,7 @@ html.expanded-fullscreen .dash-main { min-height: calc(100vh - var(--topbar-h));
 }
 .dropdown-menu button:hover { background:#fdecea; }
 
-/* ============================================================
-   LAYOUT
-   ============================================================ */
+
 .dash-layout {
   display:flex;
   margin-top:var(--topbar-h);
@@ -168,9 +163,7 @@ html.expanded-fullscreen .dash-main { min-height: calc(100vh - var(--topbar-h));
   display:flex; align-items:center; gap:12px;
 }
 
-/* ============================================================
-   CUSTOM ARROW ICON STYLES (NO STROKE) - SMALLER SIZE
-   ============================================================ */
+
 .nav-arrow-icon {
   display: inline-flex;
   align-items: center;

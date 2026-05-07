@@ -685,9 +685,7 @@ eventPopupClose.addEventListener('click',   closeEventPopup);
 eventPopupOverlay.addEventListener('click', closeEventPopup);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEventPopup(); });
 
-/* ============================================================
-   REQUESTS BADGE
-   ============================================================ */
+
 function updateRequestsBadge() {
   const badge = document.getElementById('requests-badge');
   if (!badge) return;

@@ -14,7 +14,7 @@ import {
 (function () {
   'use strict';
 
-  /* ---------- Element references ---------- */
+
   const registerBtn      = document.getElementById('register-btn');
   const statusEl         = document.getElementById('register-status');
 
@@ -31,7 +31,10 @@ import {
   const eyeIconPw        = document.getElementById('eye-icon-pw');
   const eyeIconConfirm   = document.getElementById('eye-icon-confirm');
 
-  /* ---------- SVG Eye Icons ---------- */
+
+
+// toggle pass
+
   const EYE_OPEN = `
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
     <circle cx="12" cy="12" r="3"/>
@@ -44,7 +47,6 @@ import {
     <line x1="1" y1="1" x2="23" y2="23"/>
   `;
 
-  /* ---------- Password Visibility Toggles ---------- */
   let pwVisible = false, confirmVisible = false;
 
   eyeIconPw.innerHTML      = EYE_OPEN;
@@ -64,7 +66,7 @@ import {
     toggleConfirmBtn.setAttribute('aria-label', confirmVisible ? 'Hide confirm password' : 'Show confirm password');
   });
 
-  /* ---------- Status Helpers ---------- */
+
   function showStatus(message, type) {
     statusEl.textContent = message;
     statusEl.className   = 'ft-status' + (type ? ' ' + type : '');
@@ -77,7 +79,7 @@ import {
 
 
 
-  /* ----   One Time Register Functionality ---- */
+//  One Time Register Functionality
 
 
   async function enforceOneTimeRegistration() {
@@ -92,7 +94,6 @@ import {
       }
     } catch (err) {
       console.error('Registration guard failed:', err);
-      /* On error, play it safe and redirect to login */
       window.location.replace('auth.login.html');
     }
   }
@@ -126,7 +127,6 @@ import {
     return true;
   }
 
-  /* ---------- Duplicate Check (username / gmail) ---------- */
   async function isDuplicate(field, value) {
     const snapshot = await getDocs(
       query(collection(db, 'Registered_Admin'), where(field, '==', value))
@@ -134,7 +134,6 @@ import {
     return !snapshot.empty;
   }
 
-  /* ---------- Register Handler ---------- */
   async function handleRegister() {
     clearStatus();
     if (!validateForm()) return;
@@ -151,7 +150,7 @@ import {
 
     try {
 
-      /* --- Final one-time check before saving --- */
+
       const lockSnapshot = await getDocs(
         query(collection(db, 'Registered_Admin'), limit(1))
       );
@@ -161,7 +160,13 @@ import {
         return;
       }
 
-      /* --- Duplicate username check --- */
+
+
+      
+//   Douplicate name checking 
+
+
+
       if (await isDuplicate('username', username)) {
         showStatus('Username is already taken. Please choose another.');
         usernameInput.focus();

@@ -249,14 +249,17 @@
         </div>
     </div>
 
+
+        //   Calendar API service
+        // For Dynamic holiday calculator for Philippine holidays
+
     <script>
-        // Dynamic holiday calculator for Philippine holidays
+      
         class PhilippineHolidays {
             constructor(year) {
                 this.year = year;
             }
 
-            // Calculate Easter Sunday (using Computus algorithm)
             getEasterSunday() {
                 const a = this.year % 19;
                 const b = Math.floor(this.year / 100);
@@ -275,7 +278,6 @@
                 return new Date(this.year, month - 1, day);
             }
 
-            // Get Holy Week dates
             getHolyWeek() {
                 const easter = this.getEasterSunday();
                 return {
@@ -286,29 +288,24 @@
                 };
             }
 
-            // Check if date is a weekend
             isWeekend(date) {
                 const day = date.getDay();
                 return day === 0 || day === 6;
             }
 
-            // Get adjusted date for holiday (if falls on weekend)
             getAdjustedDate(month, day, name) {
                 const date = new Date(this.year, month - 1, day);
                 const dayOfWeek = date.getDay();
-                
-                // If holiday falls on Sunday, observe on Monday
+
                 if (dayOfWeek === 0) {
                     const adjusted = new Date(this.year, month - 1, day + 1);
                     return { date, observedDate: adjusted, needsAdjustment: true };
                 }
-                // If holiday falls on Saturday, observe on Friday? No, usually Monday or no adjustment
                 return { date, observedDate: date, needsAdjustment: false };
             }
 
-            // Get Chinese New Year (simplified - between Jan 21 and Feb 20)
             getChineseNewYear() {
-                // Simplified calculation - in production, use actual lunar calendar API
+
                 const chineseNewYearDates = {
                     2024: { month: 2, day: 10 },
                     2025: { month: 1, day: 29 },
@@ -321,7 +318,6 @@
                 return chineseNewYearDates[this.year] || { month: 2, day: 10 };
             }
 
-            // Get Eid'l Fitr (simplified - actual dates vary based on moon sighting)
             getEidlFitr() {
                 // Approximate dates - actual dates depend on moon sighting
                 const eidDates = {
@@ -363,6 +359,8 @@
                 ];
 
                 // Special Non-Working Holidays
+
+
                 const specialHolidays = [
                     { name: "Chinese New Year", month: chineseNewYear.month, day: chineseNewYear.day, type: "special", 
                       description: "Celebrates the Lunar New Year according to the Chinese calendar. Filipinos of Chinese descent participate in lion dances, fireworks, and family feasts.", movable: true },
@@ -379,6 +377,7 @@
                 ];
 
                 // Religious Holidays (Holy Week)
+
                 const religiousHolidays = [
                     { name: "Maundy Thursday", month: holyWeek.maundyThursday.getMonth() + 1, day: holyWeek.maundyThursday.getDate(), type: "religious", 
                       description: "Part of Holy Week, commemorating the Last Supper. Many businesses close and people prepare for the Easter celebrations.", movable: true },
@@ -391,7 +390,6 @@
                 return [...regularHolidays, ...specialHolidays, ...religiousHolidays];
             }
 
-            // Format date for display
             formatDate(month, day) {
                 const date = new Date(this.year, month - 1, day);
                 return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
@@ -408,7 +406,10 @@
         let holidaysInstance = new PhilippineHolidays(currentYear);
         let allHolidays = [];
 
+
         // DOM Elements
+
+
         const yearDisplay = document.getElementById('current-year');
         const holidaysGrid = document.getElementById('holidays-grid');
         const prevYearBtn = document.getElementById('prev-year');
@@ -417,30 +418,26 @@
         const specialCountEl = document.getElementById('special-count');
         const totalCountEl = document.getElementById('total-count');
 
-        // Function to render holidays
         function renderHolidays() {
-            // Show loading
+
             holidaysGrid.innerHTML = '<div class="loading"><div class="loading-spinner"></div>Loading holidays...</div>';
-            
-            // Simulate slight delay for smooth transition
+
             setTimeout(() => {
                 holidaysInstance = new PhilippineHolidays(currentYear);
                 allHolidays = holidaysInstance.getAllHolidays();
                 
-                // Sort by date
+   
                 allHolidays.sort((a, b) => {
                     if (a.month === b.month) return a.day - b.day;
                     return a.month - b.month;
                 });
                 
-                // Update stats
                 const regularCount = allHolidays.filter(h => h.type === 'regular').length;
                 const specialCount = allHolidays.filter(h => h.type === 'special' || h.type === 'religious').length;
                 regularCountEl.textContent = regularCount;
                 specialCountEl.textContent = specialCount;
                 totalCountEl.textContent = allHolidays.length;
-                
-                // Render cards
+
                 holidaysGrid.innerHTML = '';
                 
                 allHolidays.forEach(holiday => {
@@ -462,7 +459,6 @@
             }, 100);
         }
 
-        // Year change handlers
         prevYearBtn.addEventListener('click', () => {
             currentYear--;
             yearDisplay.textContent = currentYear;

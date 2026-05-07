@@ -16,13 +16,14 @@ const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
 const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; 
 const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
 
-/* ── Resend cooldown in seconds ── */
+
+
+
 const RESEND_COOLDOWN = 60;
 
 (function () {
   'use strict';
 
-  /* ---------- Element references ---------- */
   const sendBtn     = document.getElementById('send-code-btn');
   const gmailInput  = document.getElementById('forgot-gmail');
   const statusEl    = document.getElementById('forgot-status');
@@ -34,7 +35,7 @@ const RESEND_COOLDOWN = 60;
   let countdownInterval = null;
   let lastGmail         = '';
 
-  /* ---------- Hide Register nav (security) ---------- */
+
   async function checkRegistrationLock() {
     try {
       const { getDocs: gd, query: q, collection: col, limit: lim } =
@@ -45,7 +46,9 @@ const RESEND_COOLDOWN = 60;
   }
   checkRegistrationLock();
 
-  /* ---------- Status helpers ---------- */
+
+
+
   function showStatus(msg, type) {
     statusEl.textContent = msg;
     statusEl.className   = 'ft-status' + (type ? ' ' + type : '');
@@ -55,12 +58,11 @@ const RESEND_COOLDOWN = 60;
     statusEl.className   = 'ft-status';
   }
 
-  /* ---------- Generate 8-digit code ---------- */
   function generateCode() {
     return Math.floor(10000000 + Math.random() * 90000000).toString();
   }
 
-  /* ---------- Start resend countdown ---------- */
+
   function startCountdown() {
     let remaining = RESEND_COOLDOWN;
     resendWrap.style.display = 'block';
@@ -80,7 +82,7 @@ const RESEND_COOLDOWN = 60;
     }, 1000);
   }
 
-  /* ---------- Send code handler ---------- */
+
   async function sendCode() {
     clearStatus();
     const gmail = gmailInput.value.trim();
@@ -101,7 +103,7 @@ const RESEND_COOLDOWN = 60;
     sendBtn.textContent = 'Sending…';
 
     try {
-      /* --- Look up admin by Gmail in Firestore --- */
+     
       const snapshot = await getDocs(
         query(collection(db, 'Registered_Admin'), where('gmail', '==', gmail))
       );
@@ -115,10 +117,7 @@ const RESEND_COOLDOWN = 60;
       const adminData = adminDoc.data();
       const code      = generateCode();
 
-      /* --- Store / overwrite code in Firestore (auto-refresh on new request) ---
-         Collection : Password_Reset_Codes
-         Document   : keyed by Gmail so there is always only ONE active code per user
-      ----------------------------------------------------------------- */
+
       await setDoc(doc(db, 'Password_Reset_Codes', gmail), {
         gmail:      gmail,
         adminId:    adminDoc.id,
@@ -144,7 +143,6 @@ const RESEND_COOLDOWN = 60;
       showStatus('Verification code sent! Check your Gmail inbox.', 'success');
       startCountdown();
 
-      /* Redirect to verify page after short delay */
       setTimeout(function () {
         sessionStorage.setItem('ft_reset_gmail', gmail);
         window.location.href = 'auth.verify.html';
@@ -159,7 +157,6 @@ const RESEND_COOLDOWN = 60;
     }
   }
 
-  /* ---------- Event listeners ---------- */
   sendBtn.addEventListener('click', sendCode);
   gmailInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') sendCode();
@@ -172,7 +169,6 @@ const RESEND_COOLDOWN = 60;
     sendCode();
   });
 
-  /* ---------- Load EmailJS SDK ---------- */
   (function loadEmailJS() {
     if (window.emailjs) return;
     const script   = document.createElement('script');

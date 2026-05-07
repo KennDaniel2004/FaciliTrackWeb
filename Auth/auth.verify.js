@@ -18,7 +18,7 @@ import {
 (function () {
   'use strict';
 
-  /* ---------- Retrieve Gmail passed from forgot page ---------- */
+
   const resetGmail = sessionStorage.getItem('ft_reset_gmail');
 
   /* If no Gmail in session, send back to forgot page */
@@ -26,13 +26,11 @@ import {
     window.location.replace('auth.forgot.html');
   }
 
-  /* ---------- Element references — Step 1 (Verify) ---------- */
   const cardVerify  = document.getElementById('card-verify');
   const verifyBtn   = document.getElementById('verify-btn');
   const codeInput   = document.getElementById('verify-code');
   const verifyStatus = document.getElementById('verify-status');
 
-  /* ---------- Element references — Step 2 (New Password) ---------- */
   const cardNewPw     = document.getElementById('card-newpw');
   const newPwInput    = document.getElementById('new-password');
   const confirmPwInput = document.getElementById('confirm-password');
@@ -44,7 +42,11 @@ import {
   const eyeConfirmPw  = document.getElementById('eye-confirmpw');
   const navRegister   = document.getElementById('nav-register');
 
-  /* ---------- SVG Eye Icons ---------- */
+
+  // toggle pass
+
+
+
   const EYE_OPEN = `
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
     <circle cx="12" cy="12" r="3"/>
@@ -57,7 +59,6 @@ import {
     <line x1="1" y1="1" x2="23" y2="23"/>
   `;
 
-  /* ---------- Eye toggle setup ---------- */
   let newPwVisible = false, confirmPwVisible = false;
   eyeNewPw.innerHTML    = EYE_OPEN;
   eyeConfirmPw.innerHTML = EYE_OPEN;
@@ -73,7 +74,6 @@ import {
     eyeConfirmPw.innerHTML  = confirmPwVisible ? EYE_CLOSED : EYE_OPEN;
   });
 
-  /* ---------- Hide Register nav (security) ---------- */
   async function checkRegistrationLock() {
     try {
       const snap = await getDocs(query(collection(db, 'Registered_Admin'), limit(1)));
@@ -82,7 +82,6 @@ import {
   }
   checkRegistrationLock();
 
-  /* ---------- Status helpers ---------- */
   function showVerifyStatus(msg, type) {
     verifyStatus.textContent = msg;
     verifyStatus.className   = 'ft-status' + (type ? ' ' + type : '');
@@ -92,12 +91,9 @@ import {
     newPwStatus.className   = 'ft-status' + (type ? ' ' + type : '');
   }
 
-  /* ---------- Verified admin doc ID (set after step 1 passes) ---------- */
+
   let verifiedAdminId = null;
 
-  /* =============================================
-     STEP 1 — Verify the 8-digit code
-     ============================================= */
   async function handleVerify() {
     showVerifyStatus('');
     const enteredCode = codeInput.value.trim();
@@ -112,7 +108,6 @@ import {
     verifyBtn.textContent = 'Verifying…';
 
     try {
-      /* --- Fetch the reset code document keyed by Gmail --- */
       const codeDoc  = await getDoc(doc(db, 'Password_Reset_Codes', resetGmail));
 
       if (!codeDoc.exists()) {
@@ -122,13 +117,11 @@ import {
 
       const codeData = codeDoc.data();
 
-      /* --- Check if already used --- */
       if (codeData.used) {
         showVerifyStatus('This code has already been used. Please request a new one.');
         return;
       }
 
-      /* --- Check expiry (15 minutes) --- */
       const expiresAt = codeData.expiresAt?.toDate
         ? codeData.expiresAt.toDate()
         : new Date(codeData.expiresAt);
@@ -138,13 +131,11 @@ import {
         return;
       }
 
-      /* --- Match the code --- */
       if (codeData.code !== enteredCode) {
         showVerifyStatus('Incorrect code. Please check your Gmail and try again.');
         return;
       }
 
-      /* --- Code is valid — store admin ID and show step 2 --- */
       verifiedAdminId = codeData.adminId;
 
       showVerifyStatus('Code verified! Set your new password below.', 'success');
@@ -164,9 +155,6 @@ import {
     }
   }
 
-  /* =============================================
-     STEP 2 — Save the new password
-     ============================================= */
   async function handleSavePassword() {
     showNewPwStatus('');
     const newPw     = newPwInput.value;
@@ -197,17 +185,14 @@ import {
     savePwBtn.textContent = 'Saving…';
 
     try {
-      /* --- Update password in Registered_Admin --- */
       await updateDoc(doc(db, 'Registered_Admin', verifiedAdminId), {
         password: newPw,   // ⚠️ Hash in production
       });
 
-      /* --- Mark the reset code as used so it can't be reused --- */
       await updateDoc(doc(db, 'Password_Reset_Codes', resetGmail), {
         used: true,
       });
 
-      /* --- Clear session reset data --- */
       sessionStorage.removeItem('ft_reset_gmail');
 
       showNewPwStatus('Password updated successfully! Redirecting to login…', 'success');
@@ -225,7 +210,6 @@ import {
     }
   }
 
-  /* ---------- Event listeners ---------- */
   verifyBtn.addEventListener('click', handleVerify);
   codeInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') handleVerify();

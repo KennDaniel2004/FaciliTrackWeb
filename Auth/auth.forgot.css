@@ -1,15 +1,9 @@
-/* =============================================
-   FaciliTrack – Forgot Password & Verify Styles
-   auth.forgot.css  (loads after auth.login.css)
-   ============================================= */
-
-/* ---------- Card variant ---------- */
 .ft-card--forgot {
   max-width: 420px;
   border: 2px solid rgba(30, 58, 171, 0.3);
 }
 
-/* ---------- Title variant ---------- */
+
 .ft-card__title--forgot {
   font-size: 20px;
   font-weight: 700;
@@ -18,7 +12,7 @@
   margin-bottom: 6px;
 }
 
-/* ---------- Description text ---------- */
+
 .ft-forgot-desc {
   font-size: 13.5px;
   color: var(--gray-text);
@@ -27,7 +21,7 @@
   text-align: center;
 }
 
-/* ---------- Code input ---------- */
+
 .ft-code-input {
   text-align: center;
   font-size: 22px;
@@ -43,7 +37,7 @@
   font-weight: 400;
 }
 
-/* ---------- Resend section ---------- */
+
 .ft-resend {
   text-align: center;
   margin-top: 12px;
@@ -62,7 +56,7 @@
   text-decoration: underline;
 }
 
-/* ---------- Login button below verify card ---------- */
+
 .ft-verify-login-wrap {
   display: flex;
   justify-content: center;

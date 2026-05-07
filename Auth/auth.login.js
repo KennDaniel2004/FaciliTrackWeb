@@ -23,14 +23,14 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
-/* ── EmailJS credentials — replace with your own ── */
+
 const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
 const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
 const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
 
-const RESEND_COOLDOWN = 60; // seconds
+const RESEND_COOLDOWN = 60; 
 
-/* ── Load EmailJS SDK ── */
+
 (function () {
   const s   = document.createElement('script');
   s.src     = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
@@ -39,9 +39,13 @@ const RESEND_COOLDOWN = 60; // seconds
   document.head.appendChild(s);
 })();
 
-/* ============================================================
-   SVG Eye Icons
-   ============================================================ */
+
+
+
+// toogle pass
+
+
+
 const EYE_OPEN = `
   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
   <circle cx="12" cy="12" r="3"/>
@@ -68,9 +72,6 @@ function makeEyeToggle(btnId, inputId, svgId) {
   });
 }
 
-/* ============================================================
-   DOM References
-   ============================================================ */
 const loginBtn      = document.getElementById('login-btn');
 const usernameInput = document.getElementById('login-username');
 const passwordInput = document.getElementById('login-password');
@@ -79,7 +80,10 @@ const navRegister   = document.getElementById('nav-register');
 const goRegister    = document.getElementById('go-register');
 const goForgot      = document.getElementById('go-forgot');
 
-/* Modal elements */
+
+
+// Modal elements
+
 const overlay       = document.getElementById('ft-modal-overlay');
 const modalVerify   = document.getElementById('modal-verify');
 const modalReset    = document.getElementById('modal-reset');
@@ -96,21 +100,19 @@ const resetConfirm  = document.getElementById('reset-confirm');
 const changeBtn     = document.getElementById('change-btn');
 const modalLoginBtn = document.getElementById('modal-login-btn');
 
-/* ── Eye toggles ── */
+// Eye toggles
+
+
 makeEyeToggle('toggle-password',      'login-password',  'eye-icon');
 makeEyeToggle('toggle-reset-pw',      'reset-password',  'eye-reset-pw');
 makeEyeToggle('toggle-reset-confirm', 'reset-confirm',   'eye-reset-confirm');
 
-/* ============================================================
-   State
-   ============================================================ */
-let countdownInterval = null;
-let verifiedAdminId   = null;   // set after code verified
-let resetGmail        = null;   // Gmail of admin resetting
 
-/* ============================================================
-   Helpers
-   ============================================================ */
+let countdownInterval = null;
+let verifiedAdminId   = null;   
+let resetGmail        = null;   
+
+
 function showLoginStatus(msg, type) {
   loginStatus.textContent = msg;
   loginStatus.className   = 'ft-status' + (type ? ' ' + type : '');
@@ -132,9 +134,7 @@ function generateCode() {
   return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
-/* ============================================================
-   SECURITY: Registration lock — hide Register if admin exists
-   ============================================================ */
+
 async function checkRegistrationLock() {
   try {
     const snap = await getDocs(query(collection(db, 'Registered_Admin'), limit(1)));
@@ -148,9 +148,6 @@ async function checkRegistrationLock() {
 }
 checkRegistrationLock();
 
-/* ============================================================
-   LOGIN
-   ============================================================ */
 async function handleLogin() {
   loginStatus.textContent = '';
   loginStatus.className   = 'ft-status';
@@ -203,9 +200,7 @@ loginBtn.addEventListener('click', handleLogin);
   el.addEventListener('input',   () => { loginStatus.textContent = ''; loginStatus.className = 'ft-status'; });
 });
 
-/* ============================================================
-   FORGOT PASSWORD — open modal & auto-send code
-   ============================================================ */
+
 goForgot.addEventListener('click', async function (e) {
   e.preventDefault();
   openModal();
@@ -227,12 +222,10 @@ function closeModal() {
   resetGmail      = null;
 }
 
-/* ── Modal Login button → go back to login ── */
+
 modalLoginBtn.addEventListener('click', closeModal);
 
-/* ============================================================
-   SEND 8-DIGIT CODE TO REGISTERED GMAIL
-   ============================================================ */
+
 async function sendVerificationCode() {
   try {
     /* Get the ONE admin in Registered_Admin */
@@ -250,7 +243,7 @@ async function sendVerificationCode() {
 
     resetGmail = gmail;
 
-    /* Store / overwrite code in Firestore — keyed by Gmail so only ONE exists */
+
     await setDoc(doc(db, 'Password_Reset_Codes', gmail), {
       gmail:     gmail,
       adminId:   adminDoc.id,
@@ -260,7 +253,7 @@ async function sendVerificationCode() {
       expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min expiry
     });
 
-    /* Send email via EmailJS */
+
     await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
@@ -284,9 +277,7 @@ async function sendVerificationCode() {
   }
 }
 
-/* ============================================================
-   RESEND COUNTDOWN
-   ============================================================ */
+
 function startResendCountdown() {
   let remaining = RESEND_COOLDOWN;
   resendWrap.style.display = 'block';
@@ -313,9 +304,10 @@ resendLink.addEventListener('click', async function (e) {
   await sendVerificationCode();
 });
 
-/* ============================================================
-   VERIFY CODE
-   ============================================================ */
+
+
+// verify code
+
 verifyBtn.addEventListener('click', handleVerify);
 verifyCodeIn.addEventListener('keydown', e => {
   if (e.key === 'Enter') handleVerify();
@@ -363,11 +355,10 @@ async function handleVerify() {
       return;
     }
 
-    /* Code valid — store admin ID and show reset form */
     verifiedAdminId = data.adminId;
     clearInterval(countdownInterval);
 
-    /* Switch to Reset Password modal */
+
     modalVerify.style.display = 'none';
     modalReset.style.display  = 'block';
     setResetStatus('', '');
@@ -381,9 +372,7 @@ async function handleVerify() {
   }
 }
 
-/* ============================================================
-   RESET PASSWORD (Change username + password)
-   ============================================================ */
+
 changeBtn.addEventListener('click', handleReset);
 [resetPassword, resetConfirm].forEach(el =>
   el.addEventListener('keydown', e => { if (e.key === 'Enter') handleReset(); })
@@ -405,7 +394,7 @@ async function handleReset() {
   changeBtn.textContent = 'Saving…';
 
   try {
-    /* Check new username not already taken (by another account) */
+  
     const dupSnap = await getDocs(
       query(collection(db, 'Registered_Admin'), where('username', '==', newUsername))
     );
@@ -417,13 +406,12 @@ async function handleReset() {
       return;
     }
 
-    /* Update Registered_Admin */
     await updateDoc(doc(db, 'Registered_Admin', verifiedAdminId), {
       username: newUsername,
-      password: newPassword,  // ⚠️ Hash in production
+      password: newPassword,  
     });
 
-    /* Mark reset code as used */
+
     await updateDoc(doc(db, 'Password_Reset_Codes', resetGmail), { used: true });
 
     setResetStatus('Password changed successfully! Redirecting to login…', 'success');

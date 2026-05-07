@@ -1,9 +1,4 @@
-/* =============================================
-   FaciliTrack – Login Page Styles
-   auth.login.css
-   ============================================= */
 
-/* ---------- Reset & Base ---------- */
 *, *::before, *::after {
   margin: 0;
   padding: 0;
@@ -11,9 +6,9 @@
 }
 
 :root {
-  --blue-dark:   #1a2e6e;   /* header top bar */
-  --blue-main:   #1e3aab;   /* primary brand blue */
-  --blue-btn:    #1a4fd6;   /* login button */
+  --blue-dark:   #1a2e6e;   
+  --blue-main:   #1e3aab;  
+  --blue-btn:    #1a4fd6;   
   --blue-hover:  #1641b8;
   --white:       #ffffff;
   --gray-light:  #f2f4f8;
@@ -33,7 +28,7 @@ html, body {
   color: var(--text-dark);
 }
 
-/* ---------- Header ---------- */
+
 .ft-header {
   position: fixed;
   top: 0;
@@ -61,7 +56,7 @@ html, body {
   border-bottom: 3px solid #dce6ff;
 }
 
-/* Brand */
+
 .ft-brand {
   display: flex;
   align-items: center;
@@ -130,10 +125,10 @@ html, body {
   width: 100%;
 }
 
-/* ---------- Main / Background ---------- */
+
 .ft-main {
   min-height: 100vh;
-  padding-top: 90px;          /* offset for fixed header */
+  padding-top: 90px;          
   display: flex;
   justify-content: center;
   align-items: center;
@@ -144,7 +139,7 @@ html, body {
   background-attachment: fixed;
 }
 
-/* ---------- Login Card ---------- */
+
 .ft-card {
   width: 100%;
   max-width: 420px;
@@ -163,7 +158,7 @@ html, body {
   to   { opacity: 1; transform: translateY(0)   scale(1);    }
 }
 
-/* Logo inside card */
+
 .ft-card__logo-wrap {
   display: flex;
   justify-content: center;
@@ -178,7 +173,6 @@ html, body {
   box-shadow: 0 4px 16px rgba(30, 58, 171, 0.18);
 }
 
-/* Title */
 .ft-card__title {
   font-size: 26px;
   font-weight: 800;
@@ -188,7 +182,6 @@ html, body {
   text-transform: uppercase;
 }
 
-/* Status message */
 .ft-status {
   min-height: 20px;
   font-size: 13px;
@@ -202,7 +195,6 @@ html, body {
   color: #1a7a4a;
 }
 
-/* ---------- Form Fields ---------- */
 .ft-field {
   text-align: left;
   margin-bottom: 16px;
@@ -238,7 +230,7 @@ html, body {
   color: #b0b8cc;
 }
 
-/* Password wrapper */
+
 .ft-field__pw-wrap {
   position: relative;
   display: flex;
@@ -266,7 +258,7 @@ html, body {
   color: var(--blue-main);
 }
 
-/* ---------- Login Button ---------- */
+
 .ft-btn {
   width: 100%;
   padding: 13px;
@@ -294,7 +286,7 @@ html, body {
   box-shadow: none;
 }
 
-/* ---------- Alt Link ---------- */
+
 .ft-card__alt {
   margin-top: 18px;
   font-size: 13.5px;
@@ -313,7 +305,6 @@ html, body {
   opacity: 0.8;
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 480px) {
   .ft-header__main {
     padding: 10px 16px;
@@ -333,7 +324,6 @@ html, body {
   }
 }
 
-/* ---------- Forgot Password Link ---------- */
 .ft-forgot {
   text-align: right;
   margin-top: -6px;
@@ -353,9 +343,6 @@ html, body {
   opacity: 0.75;
 }
 
-/* =============================================
-   MODAL OVERLAY — Forgot Password Flow
-   ============================================= */
 
 .ft-modal-overlay {
   position: fixed;
@@ -375,7 +362,6 @@ html, body {
   overflow-y: auto;
 }
 
-/* Logo above the modal card */
 .ft-modal-logo-wrap {
   margin-bottom: -30px;
   z-index: 2;
@@ -391,7 +377,6 @@ html, body {
   background: #fff;
 }
 
-/* Modal card */
 .ft-modal {
   width: 100%;
   max-width: 460px;
@@ -407,7 +392,7 @@ html, body {
   z-index: 1;
 }
 
-/* Reset password modal title */
+
 .ft-modal-title {
   font-size: 22px;
   font-weight: 800;
@@ -416,7 +401,7 @@ html, body {
   margin-bottom: 16px;
 }
 
-/* Status message inside modal */
+
 .ft-modal-status {
   width: 100%;
   min-height: 38px;
@@ -481,7 +466,6 @@ html, body {
 
 .ft-resend a:hover { text-decoration: underline; }
 
-/* Bottom Login button below modal */
 .ft-modal-bottom {
   margin-top: 18px;
   width: 100%;
@@ -495,7 +479,7 @@ html, body {
   letter-spacing: 1.5px;
 }
 
-/* Forgot link on login card */
+
 .ft-forgot {
   text-align: right;
   margin-top: -6px;
