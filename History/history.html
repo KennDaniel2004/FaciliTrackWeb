@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaciliTrack – History</title>
+  <link rel="stylesheet" href="history.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- ─── Sidebar ───────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-circle">F</div>
+      <span class="logo-text">FaciliTrack</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="schedule.html" class="nav-item">
+        <i class="fas fa-calendar-alt"></i><span>Schedule</span>
+      </a>
+      <a href="requests.html" class="nav-item">
+        <i class="fas fa-file-alt"></i><span>Requests</span>
+        <span class="notif-dot" id="requestDot" style="display:none"></span>
+      </a>
+      <a href="users.html" class="nav-item">
+        <i class="fas fa-users"></i><span>User's</span>
+      </a>
+      <a href="changestats.html" class="nav-item">
+        <i class="fas fa-sliders-h"></i><span>Change Stats</span>
+      </a>
+
+      <!-- History (parent) -->
+      <div class="nav-item nav-parent active" id="historyParent">
+        <i class="fas fa-history"></i><span>History</span>
+        <i class="fas fa-chevron-down arrow" id="historyArrow"></i>
+      </div>
+      <div class="nav-submenu open" id="historySubmenu">
+        <a href="history.html" class="nav-subitem active">
+          <i class="fas fa-inbox"></i><span>History</span>
+        </a>
+        <a href="archive.html" class="nav-subitem">
+          <i class="fas fa-archive"></i><span>Archive</span>
+        </a>
+      </div>
+
+      <a href="monitoring.html" class="nav-item">
+        <i class="fas fa-chart-line"></i><span>Monitoring</span>
+      </a>
+    </nav>
+  </aside>
+
+  <!-- ─── Main Content ──────────────────────────────────────── -->
+  <div class="main-wrap" id="mainWrap">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button class="hamburger" id="hamburger"><i class="fas fa-bars"></i></button>
+      <div class="topbar-logo">
+        <div class="logo-circle sm">F</div>
+        <span>FaciliTrack</span>
+      </div>
+      <div class="topbar-user">
+        <span id="adminDisplayName">Full name</span>
+        <div class="avatar" id="adminAvatar"></div>
+      </div>
+    </header>
+
+    <!-- Page Body -->
+    <main class="page-body">
+      <h1 class="page-title">History</h1>
+
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="card card-approved">
+          <div class="card-icon"><i class="fas fa-check-circle"></i></div>
+          <div class="card-text">
+            <span class="card-label">Approved</span>
+            <span class="card-count" id="countApproved">0</span>
+          </div>
+        </div>
+        <div class="card card-reject">
+          <div class="card-icon"><i class="fas fa-times-circle"></i></div>
+          <div class="card-text">
+            <span class="card-label">Reject</span>
+            <span class="card-count" id="countReject">0</span>
+          </div>
+        </div>
+        <div class="card card-finished">
+          <div class="card-icon"><i class="fas fa-clipboard-check"></i></div>
+          <div class="card-text">
+            <span class="card-label">Finished</span>
+            <span class="card-count" id="countFinished">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs-row">
+        <button class="tab-btn active" data-tab="Finished">Finished Requests</button>
+        <button class="tab-btn" data-tab="Approved">Approved Requests</button>
+        <button class="tab-btn" data-tab="Rejected">Reject Requests</button>
+        <button class="tab-btn" data-tab="Rescheduled">Rescheduled Requests</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrapper">
+        <table class="data-table" id="historyTable">
+          <thead>
+            <tr>
+              <th>User ID</th>
+              <th>Fullname</th>
+              <th>Event</th>
+              <th>Venue</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Date &amp; Timestamp</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr class="loading-row"><td colspan="8"><i class="fas fa-spinner fa-spin"></i> Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- ─── View Detail Modal ──────────────────────────────────── -->
+  <div class="modal-overlay" id="viewModal" style="display:none">
+    <div class="modal-card wide">
+      <div class="modal-header">
+        <h2><i class="fas fa-info-circle"></i> Request Details</h2>
+        <button class="modal-close" id="viewModalClose"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="viewModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ─── Confirmation Modal ────────────────────────────────── -->
+  <div class="modal-overlay" id="confirmModal" style="display:none">
+    <div class="modal-card">
+      <div class="modal-icon" id="confirmIcon"></div>
+      <h2 class="confirm-title" id="confirmTitle"></h2>
+      <p class="confirm-msg"   id="confirmMsg"></p>
+      <div class="confirm-btns">
+        <button class="btn btn-cancel" id="confirmCancel">Cancel</button>
+        <button class="btn"            id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast ─────────────────────────────────────────────── -->
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="history.js"></script>
+</body>
+</html>
