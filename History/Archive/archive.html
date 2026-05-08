@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FaciliTrack — Archive</title>
+  <link rel="stylesheet" href="archive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<!-- ══════════════════ SIDEBAR ══════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <button class="hamburger" id="hamburgerBtn" title="Toggle sidebar">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+    <div class="brand">
+      <div class="brand-icon">F</div>
+      <span class="brand-name">FaciliTrack</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a href="../../HomeDashboard/dashboard.html" class="nav-item">
+      <i class="fa-regular fa-calendar-days"></i>
+      <span>Schedule</span>
+    </a>
+    <a href="../../Requests/request.html" class="nav-item">
+      <i class="fa-regular fa-file-lines"></i>
+      <span>Requests</span>
+      <span class="nav-badge" id="requestsBadge"></span>
+    </a>
+    <a href="../../User/user.html" class="nav-item">
+      <i class="fa-regular fa-user"></i>
+      <span>User's</span>
+    </a>
+    <a href="../../ChangeStats/change.html" class="nav-item">
+      <i class="fa-solid fa-sliders"></i>
+      <span>Change Stats</span>
+    </a>
+
+    <!-- History with sub-menu -->
+    <div class="nav-item nav-has-sub active open" id="historyMenu">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span>History</span>
+      <i class="fa-solid fa-chevron-down sub-arrow"></i>
+    </div>
+    <div class="nav-sub open" id="historySub">
+      <a href="../history.html" class="nav-sub-item">
+        <i class="fa-solid fa-rectangle-list"></i>
+        <span>History</span>
+      </a>
+      <a href="archive.html" class="nav-sub-item active">
+        <i class="fa-solid fa-box-archive"></i>
+        <span>Archive</span>
+      </a>
+    </div>
+
+    <a href="../../Monitoring/monitoring.html" class="nav-item">
+      <i class="fa-solid fa-chart-line"></i>
+      <span>Monitoring</span>
+    </a>
+  </nav>
+</aside>
+
+<!-- ══════════════════ MAIN CONTENT ══════════════════ -->
+<div class="main-wrapper" id="mainWrapper">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <h1 class="page-title">Archive</h1>
+    <div class="topbar-user">
+      <span class="user-label" id="adminFullName">Full name</span>
+      <div class="avatar" id="adminAvatar">AD</div>
+    </div>
+  </header>
+
+  <!-- Stats Summary Cards -->
+  <div class="stats-summary">
+    <div class="stat-summary-card">
+      <div class="stat-summary-icon"><i class="fa-solid fa-box-archive"></i></div>
+      <div class="stat-summary-info">
+        <span class="stat-summary-value" id="totalArchived">0</span>
+        <span class="stat-summary-label">Total Archived</span>
+      </div>
+    </div>
+    <div class="stat-summary-card">
+      <div class="stat-summary-icon"><i class="fa-solid fa-calendar-week"></i></div>
+      <div class="stat-summary-info">
+        <span class="stat-summary-value" id="archivedThisMonth">0</span>
+        <span class="stat-summary-label">Archived This Month</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="archive-search-wrap">
+    <i class="fa-solid fa-search"></i>
+    <input type="text" id="archive-search" placeholder="Search archived requests by name, event, or venue..." />
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrapper">
+    <div class="table-container">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Fullname</th>
+            <th>Event</th>
+            <th>Venue</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Archived Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="archiveBody">
+          <tr class="skeleton-row">
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          </tr>
+          <tr class="skeleton-row">
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
+            <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          </tr>
+        </tbody>
+       </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-row" id="paginationRow" style="display: none;">
+      <button class="page-btn" id="pagePrev" title="Previous">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <div class="page-numbers" id="pageNumbers"></div>
+      <button class="page-btn" id="pageNext" title="Next">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+</div><!-- /main-wrapper -->
+
+<!-- ══════════════════ VIEW MODAL ══════════════════ -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal modal--view">
+    <div class="modal-header">
+      <h2><i class="fa-solid fa-eye"></i> Archived Request Details</h2>
+      <button class="modal-close" id="closeViewModal"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="viewModalBody">
+      <!-- filled by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn--secondary" id="viewCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ CONFIRMATION MODAL ══════════════════ -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal modal--confirm">
+    <div class="modal-icon" id="confirmIcon"></div>
+    <h2 class="confirm-title" id="confirmTitle">Are you sure?</h2>
+    <p class="confirm-message" id="confirmMessage"></p>
+    <div class="modal-footer">
+      <button class="btn btn--secondary" id="confirmCancel">Cancel</button>
+      <button class="btn btn--danger" id="confirmProceed">Proceed</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ TOAST ══════════════════ -->
+<div class="toast" id="toast">
+  <i class="fa-solid fa-circle-check toast-icon"></i>
+  <span id="toastMsg"></span>
+</div>
+
+<!-- ══════════════════ LOGOUT MODAL ══════════════════ -->
+<div id="logout-modal" class="modal hidden">
+  <div class="modal-overlay" id="modal-overlay"></div>
+  <div class="modal-container">
+    <div class="modal-header"><h3>Confirm Logout</h3></div>
+    <div class="modal-body"><p>Are you sure you want to logout?</p></div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel-btn" id="modal-cancel">Cancel</button>
+      <button class="modal-btn confirm-btn" id="modal-confirm">Logout</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="archive.js"></script>
+</body>
+</html>

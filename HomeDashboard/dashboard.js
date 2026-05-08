@@ -120,15 +120,12 @@ if (scheduleParent) {
 
 setScheduleSubmenu(false);
 
-document.querySelectorAll('.nav-item[data-panel]').forEach(item => {
-  if (item === scheduleParent) return;
-  item.addEventListener('click', function(e) {
-    const panelId = this.dataset.panel;
-    if (!panelId) return;
-    e.preventDefault();
-    showPanel(panelId);
-    if (window.innerWidth < 768) setSidebar(false);
-  });
+document.querySelectorAll('.nav-item').forEach(item => {
+  const href = item.getAttribute('href');
+  if (href && href !== '#' && !href.startsWith('javascript:')) {
+
+    return;
+  }
 });
 
 const legalHolidayLink = document.querySelector('.nav-child[data-panel="panel-legalholiday"]');
