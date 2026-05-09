@@ -4,212 +4,243 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>FaciliTrack — History</title>
+  <link rel="stylesheet" href="../HomeDashboard/dashboard.css" />
   <link rel="stylesheet" href="history.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <style>
-    /* Additional inline styles for better mobile experience */
-    .sidebar-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 140;
-    }
-    .sidebar-overlay.show {
-      display: block;
-    }
-    @media (min-width: 769px) {
-      .sidebar-overlay {
-        display: none !important;
-      }
-    }
-  </style>
 </head>
 <body>
 
-<!-- ══════════════════ SIDEBAR ══════════════════ -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <button class="hamburger" id="hamburgerBtn" title="Toggle sidebar">
-      <i class="fa-solid fa-bars"></i>
-    </button>
-    <div class="brand">
-      <div class="brand-icon">F</div>
-      <span class="brand-name">FaciliTrack</span>
-    </div>
-  </div>
-
-  <nav class="sidebar-nav">
-    <a href="../HomeDashboard/dashboard.html" class="nav-item">
-      <i class="fa-regular fa-calendar-days"></i>
-      <span>Schedule</span>
-    </a>
-    <a href="../Requests/request.html" class="nav-item">
-      <i class="fa-regular fa-file-lines"></i>
-      <span>Requests</span>
-      <span class="nav-badge" id="requestsBadge"></span>
-    </a>
-    <a href="../User/user.html" class="nav-item">
-      <i class="fa-regular fa-user"></i>
-      <span>User's</span>
-    </a>
-    <a href="../ChangeStats/change.html" class="nav-item">
-      <i class="fa-solid fa-sliders"></i>
-      <span>Change Stats</span>
-    </a>
-
-    <!-- History with sub-menu -->
-    <div class="nav-item nav-has-sub active" id="historyMenu">
-      <i class="fa-solid fa-clock-rotate-left"></i>
-      <span>History</span>
-      <i class="fa-solid fa-chevron-down sub-arrow" id="historyArrow"></i>
-    </div>
-    <div class="nav-sub open" id="historySub">
-      <a href="history.html" class="nav-sub-item active">
-        <i class="fa-solid fa-rectangle-list"></i>
-        <span>History</span>
-      </a>
-      <a href="Archive/archive.html" class="nav-sub-item">
-        <i class="fa-solid fa-box-archive"></i>
-        <span>Archive</span>
-      </a>
-    </div>
-
-    <a href="../Monitoring/monitoring.html" class="nav-item">
-      <i class="fa-solid fa-chart-line"></i>
-      <span>Monitoring</span>
-    </a>
-  </nav>
-</aside>
-
-<!-- Sidebar Overlay for Mobile -->
-<div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-<!-- ══════════════════ MAIN CONTENT ══════════════════ -->
-<div class="main-wrapper" id="mainWrapper">
-
-  <!-- Top Bar -->
+  <!-- ===== TOPBAR (Same as Dashboard) ===== -->
   <header class="topbar">
-    <h1 class="page-title">History</h1>
-    <div class="topbar-user">
-      <span class="user-label" id="adminFullName">Full name</span>
-      <div class="avatar" id="adminAvatar">AD</div>
+    <div class="topbar-left">
+      <button class="hamburger" id="hamburger" aria-label="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-brand">
+        <img src="../Images/logo.png" alt="FaciliTrack" class="topbar-logo" />
+        <span class="topbar-name">FaciliTrack</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="topbar-action-btn" id="topbar-expand" type="button" title="Fullscreen">
+        <span class="action-icon">⛶</span>
+      </button>
+      <div class="topbar-profile" id="profile-trigger">
+        <span class="topbar-fullname" id="topbar-fullname">Full name</span>
+        <div class="topbar-avatar" id="topbar-avatar">FT</div>
+        <div class="dropdown-menu" id="dropdown-menu">
+          <button id="logout-btn">🚪 Logout</button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <!-- Summary Cards -->
-  <div class="summary-cards">
-    <div class="card card--approved" id="cardApproved">
-      <div class="card-icon"><i class="fa-solid fa-circle-check"></i></div>
-      <div class="card-info">
-        <span class="card-label">Approved</span>
-        <span class="card-count" id="countApproved">0</span>
+  <!-- ===== LAYOUT (Same as Dashboard) ===== -->
+  <div class="dash-layout" id="dash-layout">
+
+    <!-- SIDEBAR (Same as Dashboard) -->
+    <nav class="sidebar" id="sidebar">
+      <a href="../HomeDashboard/dashboard.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        Schedule
+      </a>
+      <a href="../Requests/request.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        Requests
+        <span class="nav-badge" id="requests-badge" style="display:none;">0</span>
+      </a>
+      <a href="../User/user.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/>
+          <line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+        User's
+      </a>
+      <a href="../ChangeStats/change.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Change Stats
+      </a>
+
+      <!-- History with sub-menu -->
+      <div class="nav-item nav-parent nav-has-sub active" id="historyMenu">
+        <div class="nav-icon-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="12 8 12 12 14 14"/>
+            <path d="M3.05 11a9 9 0 1 0 .5-4.5"/>
+            <polyline points="3 3 3 8 8 8"/>
+          </svg>
+          History
+        </div>
+        <span class="nav-arrow-icon" id="historyArrow">
+          <img src="https://cdn-icons-png.flaticon.com/512/130/130882.png" alt="toggle" class="schedule-arrow">
+        </span>
+      </div>
+      <div class="nav-submenu" id="historySub">
+        <a href="history.html" class="nav-item nav-child active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="4" y="4" width="16" height="16" rx="2"/>
+            <path d="M9 12h6"/>
+          </svg>
+          History
+        </a>
+        <a href="Archive/archive.html" class="nav-item nav-child">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+          </svg>
+          Archive
+        </a>
+      </div>
+
+      <a href="../Monitoring/monitoring.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        Monitoring
+      </a>
+    </nav>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- MAIN CONTENT -->
+    <main class="dash-main" id="dash-main">
+      <div class="history-page">
+
+        <!-- Summary Cards - IMPORTANT: IDs must match JS -->
+        <div class="history-summary-cards">
+          <div class="history-card history-card--approved" id="cardApproved">
+            <div class="history-card-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="history-card-info">
+              <span class="history-card-label">Approved</span>
+              <span class="history-card-count" id="countApproved">0</span>
+            </div>
+          </div>
+          <div class="history-card history-card--reject" id="cardReject">
+            <div class="history-card-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+            <div class="history-card-info">
+              <span class="history-card-label">Reject</span>
+              <span class="history-card-count" id="countReject">0</span>
+            </div>
+          </div>
+          <div class="history-card history-card--rescheduled" id="cardRescheduled">
+            <div class="history-card-icon"><i class="fa-solid fa-calendar-week"></i></div>
+            <div class="history-card-info">
+              <span class="history-card-label">Reschedule</span>
+              <span class="history-card-count" id="countRescheduled">0</span>
+            </div>
+          </div>
+          <div class="history-card history-card--finished" id="cardFinished">
+            <div class="history-card-icon"><i class="fa-regular fa-square-check"></i></div>
+            <div class="history-card-info">
+              <span class="history-card-label">Finished</span>
+              <span class="history-card-count" id="countFinished">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="history-search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" id="history-search" placeholder="Search requests by name, event, or venue..." />
+        </div>
+
+        <!-- Tabs -->
+        <div class="history-tabs-row">
+          
+          <button class="history-tab-btn active" data-tab="approved">Approved</button>
+          <button class="history-tab-btn" data-tab="rejected">Rejected</button>
+          <button class="history-tab-btn" data-tab="rescheduled">Rescheduled</button>
+          <button class="history-tab-btn" data-tab="finished">Finished</button>
+        </div>
+
+        <!-- Table -->
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Fullname</th>
+                <th>Event</th>
+                <th>Venue</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Date &amp; Timestamp</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <!-- Skeleton rows will be inserted by JS -->
+            </tbody>
+          </table>
+          <div id="history-empty" class="history-empty hidden">
+            <span>No requests found</span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== VIEW MODAL ===== -->
+  <div id="view-modal" class="history-modal hidden">
+    <div class="history-modal-overlay" id="view-modal-overlay"></div>
+    <div class="history-modal-card">
+      <button class="history-modal-back" id="view-modal-back" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <h2 class="history-modal-title">Request Details</h2>
+      <div class="history-modal-details" id="view-modal-details"></div>
+    </div>
+  </div>
+
+  <!-- ===== CONFIRMATION MODAL ===== -->
+  <div id="confirm-modal" class="history-confirm-modal hidden">
+    <div class="history-modal-overlay" id="confirm-modal-overlay"></div>
+    <div class="history-confirm-card">
+      <div class="history-confirm-icon" id="confirm-icon">✓</div>
+      <h3 class="history-confirm-title" id="confirm-title">Confirm Action</h3>
+      <p class="history-confirm-msg" id="confirm-msg">Are you sure?</p>
+      <div class="history-confirm-btns">
+        <button class="history-confirm-btn history-confirm-btn--cancel" id="confirm-cancel">Cancel</button>
+        <button class="history-confirm-btn history-confirm-btn--ok" id="confirm-ok">Confirm</button>
       </div>
     </div>
-    <div class="card card--reject" id="cardReject">
-      <div class="card-icon"><i class="fa-solid fa-circle-xmark"></i></div>
-      <div class="card-info">
-        <span class="card-label">Reject</span>
-        <span class="card-count" id="countReject">0</span>
-      </div>
-    </div>
-    <div class="card card--rescheduled" id="cardRescheduled">
-      <div class="card-icon"><i class="fa-solid fa-calendar-week"></i></div>
-      <div class="card-info">
-        <span class="card-label">Reschedule</span>
-        <span class="card-count" id="countRescheduled">0</span>
-      </div>
-    </div>
-    <div class="card card--finished" id="cardFinished">
-      <div class="card-icon"><i class="fa-regular fa-square-check"></i></div>
-      <div class="card-info">
-        <span class="card-label">Finished</span>
-        <span class="card-count" id="countFinished">0</span>
+  </div>
+
+  <!-- ===== LOGOUT MODAL ===== -->
+  <div id="logout-modal" class="modal hidden">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-container">
+      <div class="modal-header"><h3>Confirm Logout</h3></div>
+      <div class="modal-body"><p>Are you sure you want to logout?</p></div>
+      <div class="modal-footer">
+        <button class="modal-btn cancel-btn" id="modal-cancel">Cancel</button>
+        <button class="modal-btn confirm-btn" id="modal-confirm">Logout</button>
       </div>
     </div>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs-row">
-    <button class="tab-btn" data-tab="finished">Finished Requests</button>
-    <button class="tab-btn active" data-tab="approved">Approved Requests</button>
-    <button class="tab-btn" data-tab="rejected">Reject Requests</button>
-    <button class="tab-btn" data-tab="rescheduled">Rescheduled Requests</button>
-  </div>
-
-  <!-- Table -->
-  <div class="table-container">
-    <table class="data-table" id="historyTable">
-      <thead>
-        <tr>
-          <th>User ID</th>
-          <th>Fullname</th>
-          <th>Event</th>
-          <th>Venue</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th>Date &amp; Timestamp</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="historyBody">
-        <tr><td colspan="8" class="empty-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div><!-- /main-wrapper -->
-
-<!-- ══════════════════ VIEW MODAL ══════════════════ -->
-<div class="modal-overlay" id="viewModal">
-  <div class="modal modal--view">
-    <div class="modal-header">
-      <h2><i class="fa-solid fa-eye"></i> Request Details</h2>
-      <button class="modal-close" id="closeViewModal"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-    <div class="modal-body" id="viewModalBody">
-      <!-- filled by JS -->
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn--secondary" id="viewCloseBtn">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════ CONFIRMATION MODAL ══════════════════ -->
-<div class="modal-overlay" id="confirmModal">
-  <div class="modal modal--confirm">
-    <div class="modal-icon" id="confirmIcon"></div>
-    <h2 class="confirm-title" id="confirmTitle">Are you sure?</h2>
-    <p class="confirm-message" id="confirmMessage"></p>
-    <div class="modal-footer">
-      <button class="btn btn--secondary" id="confirmCancel">Cancel</button>
-      <button class="btn btn--danger" id="confirmProceed">Proceed</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════ TOAST ══════════════════ -->
-<div class="toast" id="toast">
-  <i class="fa-solid fa-circle-check toast-icon"></i>
-  <span id="toastMsg"></span>
-</div>
-
-<!-- ══════════════════ LOGOUT MODAL ══════════════════ -->
-<div id="logout-modal" class="modal hidden">
-  <div class="modal-overlay" id="modal-overlay"></div>
-  <div class="modal-container">
-    <div class="modal-header"><h3>Confirm Logout</h3></div>
-    <div class="modal-body"><p>Are you sure you want to logout?</p></div>
-    <div class="modal-footer">
-      <button class="modal-btn cancel-btn" id="modal-cancel">Cancel</button>
-      <button class="modal-btn confirm-btn" id="modal-confirm">Logout</button>
-    </div>
-  </div>
-</div>
-
-<script type="module" src="history.js"></script>
+  <script type="module" src="history.js"></script>
 </body>
 </html>

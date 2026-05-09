@@ -1,5 +1,5 @@
 // ============================================================
-// history.js  —  FaciliTrack History Page (FULLY RESPONSIVE)
+// history.js  —  FaciliTrack History Page (FULLY FIXED)
 // ============================================================
 import {
   db,
@@ -25,45 +25,47 @@ let currentTab = "approved";
 let pendingAction = null;
 let currentAdmin = null;
 let isLoading = true;
+let searchTerm = '';
 
 // ── DOM References ────────────────────────────────────────────
-const historyBody = document.getElementById("historyBody");
-const adminFullName = document.getElementById("adminFullName");
-const adminAvatar = document.getElementById("adminAvatar");
+const historyBody = document.getElementById("history-body");
+const emptyDiv = document.getElementById("history-empty");
+const searchInput = document.getElementById("history-search");
 
-// Summary count elements
-let countApprovedSpan = null;
-let countRejectSpan = null;
-let countRescheduledSpan = null;
-let countFinishedSpan = null;
+// Count elements
+const countApprovedSpan = document.getElementById("countApproved");
+const countRejectSpan = document.getElementById("countReject");
+const countRescheduledSpan = document.getElementById("countRescheduled");
+const countFinishedSpan = document.getElementById("countFinished");
+
+// Topbar elements
+const adminFullName = document.getElementById("topbar-fullname");
+const adminAvatar = document.getElementById("topbar-avatar");
+const profileTrigger = document.getElementById("profile-trigger");
+const dropdownMenu = document.getElementById("dropdown-menu");
+const logoutBtn = document.getElementById("logout-btn");
 
 // Modals
-const viewModal = document.getElementById("viewModal");
-const viewModalBody = document.getElementById("viewModalBody");
-const closeViewModal = document.getElementById("closeViewModal");
-const viewCloseBtn = document.getElementById("viewCloseBtn");
+const confirmModal = document.getElementById("confirm-modal");
+const confirmIcon = document.getElementById("confirm-icon");
+const confirmTitle = document.getElementById("confirm-title");
+const confirmMsg = document.getElementById("confirm-msg");
+const confirmCancel = document.getElementById("confirm-cancel");
+const confirmOk = document.getElementById("confirm-ok");
+const confirmOverlay = document.getElementById("confirm-modal-overlay");
 
-const confirmModal = document.getElementById("confirmModal");
-const confirmIcon = document.getElementById("confirmIcon");
-const confirmTitle = document.getElementById("confirmTitle");
-const confirmMessage = document.getElementById("confirmMessage");
-const confirmCancel = document.getElementById("confirmCancel");
-const confirmProceed = document.getElementById("confirmProceed");
-
-const toast = document.getElementById("toast");
-const toastMsg = document.getElementById("toastMsg");
+// Logout modal
+const logoutModal = document.getElementById("logout-modal");
+const modalCancel = document.getElementById("modal-cancel");
+const modalConfirm = document.getElementById("modal-confirm");
 
 // Sidebar elements
+const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
-const mainWrapper = document.getElementById("mainWrapper");
-const hamburgerBtn = document.getElementById("hamburgerBtn");
 const sidebarOverlay = document.getElementById("sidebar-overlay");
 const historyMenu = document.getElementById("historyMenu");
 const historySub = document.getElementById("historySub");
-
-// Store original HTML for restoration
-let originalCardsHTML = '';
-let originalTabsHTML = '';
+const historyArrow = document.getElementById("historyArrow");
 
 // ── Helper Functions ──────────────────────────────────────────
 
@@ -77,85 +79,76 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-let toastTimer;
-function showToast(msg, type = "success") {
-  if (!toastMsg) return;
-  toastMsg.textContent = msg;
-  toast.className = `toast ${type}`;
-  toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
+function showToast(message, type = "success") {
+  const existingToast = document.querySelector('.history-toast');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = `history-toast ${type}`;
+  toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${message}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 function updateSidebarActive() {
-  document.querySelectorAll('.nav-item, .nav-sub-item').forEach(item => {
+  document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
   });
   if (historyMenu) historyMenu.classList.add('active');
-  const historyLink = document.querySelector('.nav-sub-item[href="history.html"]');
+  document.querySelectorAll('.nav-child').forEach(item => {
+    item.classList.remove('active');
+  });
+  const historyLink = document.querySelector('.nav-child[href="history.html"]');
   if (historyLink) historyLink.classList.add('active');
 }
 
+// IMPORTANT: This function handles different status case formats
 function normalizeStatus(status) {
   if (!status) return 'Pending';
-  const statusLower = status.toLowerCase();
+  
+  // Convert to lowercase for comparison
+  const statusLower = String(status).toLowerCase();
+  
   if (statusLower === 'approved') return 'Approved';
   if (statusLower === 'rejected') return 'Rejected';
   if (statusLower === 'finished') return 'Finished';
   if (statusLower === 'rescheduled') return 'Rescheduled';
   if (statusLower === 'pending') return 'Pending';
-  return status;
+  
+  // If unknown, return as is with first letter capitalized
+  return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
+}
+
+// ── Update Counts Function ─────────────────────────────────────
+function updateCounts() {
+  // Count based on displayStatus
+  const approved = allRequests.filter(r => r.displayStatus === "Approved").length;
+  const rejected = allRequests.filter(r => r.displayStatus === "Rejected").length;
+  const rescheduled = allRequests.filter(r => r.displayStatus === "Rescheduled").length;
+  const finished = allRequests.filter(r => r.displayStatus === "Finished").length;
+  
+  console.log('=== COUNT UPDATE ===');
+  console.log('Total requests:', allRequests.length);
+  console.log('Approved:', approved);
+  console.log('Rejected:', rejected);
+  console.log('Rescheduled:', rescheduled);
+  console.log('Finished:', finished);
+  console.log('All statuses:', allRequests.map(r => ({ id: r.id, status: r.status, displayStatus: r.displayStatus })));
+  
+  // Update DOM
+  if (countApprovedSpan) countApprovedSpan.textContent = approved;
+  if (countRejectSpan) countRejectSpan.textContent = rejected;
+  if (countRescheduledSpan) countRescheduledSpan.textContent = rescheduled;
+  if (countFinishedSpan) countFinishedSpan.textContent = finished;
 }
 
 // ── Skeleton Loading Functions ────────────────────────────────
-
 function showSkeletonLoading() {
-  // Save original HTML for later restoration
-  const summaryCards = document.querySelector('.summary-cards');
-  const tabsRow = document.querySelector('.tabs-row');
-  
-  if (summaryCards && !originalCardsHTML) {
-    originalCardsHTML = summaryCards.innerHTML;
-  }
-  if (tabsRow && !originalTabsHTML) {
-    originalTabsHTML = tabsRow.innerHTML;
-  }
-  
-  // Show skeleton for summary cards (counts show as "--")
-  if (summaryCards) {
-    summaryCards.innerHTML = `
-      <div class="card card--approved skeleton-card">
-        <div class="card-icon skeleton-icon"></div>
-        <div class="card-info">
-          <span class="card-label">Approved</span>
-          <span class="card-count skeleton-count">--</span>
-        </div>
-      </div>
-      <div class="card card--reject skeleton-card">
-        <div class="card-icon skeleton-icon"></div>
-        <div class="card-info">
-          <span class="card-label">Reject</span>
-          <span class="card-count skeleton-count">--</span>
-        </div>
-      </div>
-      <div class="card card--rescheduled skeleton-card">
-        <div class="card-icon skeleton-icon"></div>
-        <div class="card-info">
-          <span class="card-label">Reschedule</span>
-          <span class="card-count skeleton-count">--</span>
-        </div>
-      </div>
-      <div class="card card--finished skeleton-card">
-        <div class="card-icon skeleton-icon"></div>
-        <div class="card-info">
-          <span class="card-label">Finished</span>
-          <span class="card-count skeleton-count">--</span>
-        </div>
-      </div>
-    `;
-  }
-  
-  // Show skeleton for table rows
   if (historyBody) {
     const skeletonRows = [];
     for (let i = 0; i < 5; i++) {
@@ -174,22 +167,16 @@ function showSkeletonLoading() {
     }
     historyBody.innerHTML = skeletonRows.join('');
   }
+  
+  // Set counts to 0 while loading
+  if (countApprovedSpan) countApprovedSpan.textContent = '0';
+  if (countRejectSpan) countRejectSpan.textContent = '0';
+  if (countRescheduledSpan) countRescheduledSpan.textContent = '0';
+  if (countFinishedSpan) countFinishedSpan.textContent = '0';
 }
 
 function hideSkeletonAndShowContent() {
-  const summaryCards = document.querySelector('.summary-cards');
-  const tabsRow = document.querySelector('.tabs-row');
-  
-  // Restore original summary cards
-  if (summaryCards && originalCardsHTML) {
-    summaryCards.innerHTML = originalCardsHTML;
-  }
-  
-  // Restore original tabs if needed
-  if (tabsRow && originalTabsHTML && tabsRow.querySelector('.skeleton-tab')) {
-    tabsRow.innerHTML = originalTabsHTML;
-  }
-  
+  // Just remove skeleton class, actual content will be rendered by renderTab
   isLoading = false;
 }
 
@@ -198,7 +185,6 @@ onAuthStateChanged(auth, async (user) => {
   const adminFromSession = getCurrentAdmin();
   
   if (!user && !adminFromSession) {
-    console.log('No authentication found, redirecting to login...');
     window.location.href = "../Auth/auth.login.html";
     return;
   }
@@ -220,64 +206,106 @@ onAuthStateChanged(auth, async (user) => {
   updateSidebarActive();
 });
 
-// ── Load ALL requests ─────────────────────────────────────────
+// ── Load Requests from Firestore ─────────────────────────────
 async function loadHistory() {
-  // Show skeleton loading
+  console.log('Loading history...');
   showSkeletonLoading();
   
   try {
+    // Get ALL requests from Firestore
     const q = query(collection(db, COLLECTIONS.REQUESTS));
     const snap = await getDocs(q);
+    
+    console.log('Firestore returned', snap.size, 'documents');
 
     allRequests = [];
     snap.forEach(docSnap => {
       const data = docSnap.data();
+      
+      // Skip archived requests
+      if (data.archived === true) {
+        console.log('Skipping archived:', docSnap.id);
+        return;
+      }
+      
       const normalizedStatus = normalizeStatus(data.status);
       
-      if (data.archived !== true) {
-        allRequests.push({ 
-          id: docSnap.id, 
-          ...data,
-          displayStatus: normalizedStatus
-        });
-      }
+      allRequests.push({ 
+        id: docSnap.id, 
+        ...data,
+        displayStatus: normalizedStatus,
+        originalStatus: data.status  // Keep original for debugging
+      });
     });
 
-    console.log('Loaded requests:', allRequests.length);
+    console.log('Processed requests:', allRequests.length);
+    console.log('Request details:', allRequests.map(r => ({ 
+      id: r.id, 
+      fullname: r.fullname,
+      originalStatus: r.originalStatus,
+      displayStatus: r.displayStatus 
+    })));
     
-    // Hide skeleton and show real content
+    // Hide skeleton
     hideSkeletonAndShowContent();
-    
-    // Re-attach event listeners
-    attachTabListeners();
-    attachCardListeners();
     
     // Update counts and render
     updateCounts();
+    
+    // Attach event listeners
+    attachCardListeners();
+    attachTabListeners();
+    
+    // Render the current tab
     renderTab(currentTab);
+    
+    if (allRequests.length === 0) {
+      showToast('No requests found in database', 'info');
+    } else {
+      showToast(`Loaded ${allRequests.length} requests`, 'success');
+    }
     
   } catch (err) {
     console.error("loadHistory error:", err);
     hideSkeletonAndShowContent();
     if (historyBody) {
-      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:var(--red)">Failed to load history. Error: ${err.message}</td></tr>`;
+      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}</td></tr>`;
     }
     showToast("Failed to load history", "error");
   }
 }
 
+// ── Search Function ───────────────────────────────────────────
+function applySearch() {
+  const term = searchInput?.value.toLowerCase() || '';
+  const filtered = term ? allRequests.filter(r => 
+    (r.fullname || '').toLowerCase().includes(term) ||
+    (r.event || '').toLowerCase().includes(term) ||
+    (r.venue || '').toLowerCase().includes(term) ||
+    (r.idNumber || r.userId || '').toLowerCase().includes(term)
+  ) : [...allRequests];
+  
+  renderTab(currentTab, filtered);
+}
+
+if (searchInput) {
+  searchInput.addEventListener('input', () => {
+    applySearch();
+  });
+}
+
 // ── Attach Event Listeners ─────────────────────────────────────
 function attachTabListeners() {
-  const tabBtns = document.querySelectorAll(".tab-btn");
+  const tabBtns = document.querySelectorAll(".history-tab-btn");
   tabBtns.forEach(btn => {
     btn.removeEventListener('click', btn._listener);
-    const listener = () => {
+    btn._listener = () => {
       tabBtns.forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      renderTab(btn.dataset.tab);
+      currentTab = btn.dataset.tab;
+      applySearch();
     };
-    btn._listener = listener;
-    btn.addEventListener('click', listener);
+    btn.addEventListener('click', btn._listener);
   });
 }
 
@@ -289,45 +317,58 @@ function attachCardListeners() {
   
   if (cardApproved) {
     cardApproved.removeEventListener('click', cardApproved._listener);
-    cardApproved._listener = () => switchTab("approved");
+    cardApproved._listener = () => {
+      document.querySelectorAll(".history-tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.dataset.tab === "approved") btn.classList.add("active");
+      });
+      currentTab = "approved";
+      applySearch();
+    };
     cardApproved.addEventListener('click', cardApproved._listener);
   }
+  
   if (cardReject) {
     cardReject.removeEventListener('click', cardReject._listener);
-    cardReject._listener = () => switchTab("rejected");
+    cardReject._listener = () => {
+      document.querySelectorAll(".history-tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.dataset.tab === "rejected") btn.classList.add("active");
+      });
+      currentTab = "rejected";
+      applySearch();
+    };
     cardReject.addEventListener('click', cardReject._listener);
   }
+  
   if (cardRescheduled) {
     cardRescheduled.removeEventListener('click', cardRescheduled._listener);
-    cardRescheduled._listener = () => switchTab("rescheduled");
+    cardRescheduled._listener = () => {
+      document.querySelectorAll(".history-tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.dataset.tab === "rescheduled") btn.classList.add("active");
+      });
+      currentTab = "rescheduled";
+      applySearch();
+    };
     cardRescheduled.addEventListener('click', cardRescheduled._listener);
   }
+  
   if (cardFinished) {
     cardFinished.removeEventListener('click', cardFinished._listener);
-    cardFinished._listener = () => switchTab("finished");
+    cardFinished._listener = () => {
+      document.querySelectorAll(".history-tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+        if (btn.dataset.tab === "finished") btn.classList.add("active");
+      });
+      currentTab = "finished";
+      applySearch();
+    };
     cardFinished.addEventListener('click', cardFinished._listener);
   }
 }
 
-// ── Update Counts ──────────────────────────────────────────────
-function updateCounts() {
-  const approved = allRequests.filter(r => r.displayStatus === "Approved").length;
-  const rejected = allRequests.filter(r => r.displayStatus === "Rejected").length;
-  const rescheduled = allRequests.filter(r => r.displayStatus === "Rescheduled").length;
-  const finished = allRequests.filter(r => r.displayStatus === "Finished").length;
-  
-  countApprovedSpan = document.getElementById("countApproved");
-  countRejectSpan = document.getElementById("countReject");
-  countRescheduledSpan = document.getElementById("countRescheduled");
-  countFinishedSpan = document.getElementById("countFinished");
-  
-  if (countApprovedSpan) countApprovedSpan.textContent = approved;
-  if (countRejectSpan) countRejectSpan.textContent = rejected;
-  if (countRescheduledSpan) countRescheduledSpan.textContent = rescheduled;
-  if (countFinishedSpan) countFinishedSpan.textContent = finished;
-}
-
-// ── Tab rendering ─────────────────────────────────────────────
+// ── Render Tab ─────────────────────────────────────────────────
 const TAB_STATUS_MAP = {
   finished: ["Finished"],
   approved: ["Approved"],
@@ -335,26 +376,23 @@ const TAB_STATUS_MAP = {
   rescheduled: ["Rescheduled"]
 };
 
-function renderTab(tab) {
-  if (isLoading) return;
-  
-  currentTab = tab;
+function renderTab(tab, requests = allRequests) {
   const targetStatuses = TAB_STATUS_MAP[tab];
+  if (!targetStatuses) return;
   
-  if (!targetStatuses) {
-    console.error('Unknown tab:', tab);
-    return;
-  }
+  const rows = requests.filter(r => targetStatuses.includes(r.displayStatus));
   
-  const rows = allRequests.filter(r => targetStatuses.includes(r.displayStatus));
+  console.log(`Rendering tab "${tab}" - Found ${rows.length} requests with status:`, targetStatuses);
 
   if (!historyBody) return;
   
   if (!rows.length) {
-    historyBody.innerHTML = `<tr><td colspan="8" class="empty-row">No ${tab} requests found.</td></tr>`;
+    historyBody.innerHTML = '';
+    if (emptyDiv) emptyDiv.classList.remove('hidden');
     return;
   }
-
+  
+  if (emptyDiv) emptyDiv.classList.add('hidden');
   historyBody.innerHTML = rows.map(r => buildRow(r)).join("");
   attachRowListeners();
 }
@@ -367,27 +405,13 @@ function getRelevantTimestamp(r) {
   return formatTimestamp(r.createdAt);
 }
 
-// History only shows Archive and Delete buttons
-function buildActions(r) {
-  return `
-    <button class="act-btn act-btn--archive" data-action="archive" data-id="${r.id}" title="Archive">
-      <i class="fa-solid fa-box-archive"></i><span>Archive</span>
-    </button>
-    <button class="act-btn act-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
-      <i class="fa-regular fa-trash-can"></i><span>Delete</span>
-    </button>`;
-}
-
 function buildRow(r) {
   const badgeClass = {
-    Approved: "badge--approved",
-    Finished: "badge--finished",
-    Rejected: "badge--rejected",
-    Rescheduled: "badge--rescheduled"
-  }[r.displayStatus] || "badge--pending";
-
-  const ts = getRelevantTimestamp(r);
-  const actions = buildActions(r);
+    Approved: "history-badge--approved",
+    Finished: "history-badge--finished",
+    Rejected: "history-badge--rejected",
+    Rescheduled: "history-badge--rescheduled"
+  }[r.displayStatus] || "";
 
   return `
     <tr data-id="${r.id}">
@@ -396,166 +420,89 @@ function buildRow(r) {
       <td>${escapeHtml(r.event || "—")}</td>
       <td>${escapeHtml(r.venue || "—")}</td>
       <td>${formatDate(r.date)}</td>
-      <td><span class="badge ${badgeClass}">${r.displayStatus}</span></td>
-      <td>${ts}</td>
-      <td><div class="actions-cell">${actions}</div></td>
+      <td><span class="history-badge ${badgeClass}">${r.displayStatus}</span></td>
+      <td>${getRelevantTimestamp(r)}</td>
+      <td><div class="history-actions">
+          <button class="history-action-btn history-action-btn--archive" data-action="archive" data-id="${r.id}" title="Archive">
+            <i class="fa-solid fa-box-archive"></i><span>Archive</span>
+          </button>
+          <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
+            <i class="fa-regular fa-trash-can"></i><span>Delete</span>
+          </button>
+        </div></td>
     </tr>
   `;
 }
 
 function attachRowListeners() {
   if (!historyBody) return;
-  historyBody.querySelectorAll(".act-btn").forEach(btn => {
+  historyBody.querySelectorAll(".history-action-btn").forEach(btn => {
     btn.removeEventListener('click', btn._listener);
-    const listener = (e) => {
+    btn._listener = (e) => {
       e.stopPropagation();
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       const record = allRequests.find(r => r.id === id);
       if (!record) return;
-      if (action === "archive") askConfirm("archive", id, record);
-      if (action === "delete") askConfirm("delete", id, record);
+      openConfirmModal(action, id, record);
     };
-    btn._listener = listener;
-    btn.addEventListener('click', listener);
-  });
-}
-
-// ── View Modal ────────────────────────────────────────────────
-let viewingRecord = null;
-
-function openViewModal(r) {
-  if (!viewModalBody) return;
-  viewingRecord = r;
-  
-  let rescheduleHtml = '';
-  if (r.displayStatus === "Rescheduled") {
-    rescheduleHtml = `
-      <div class="detail-item full">
-        <label>Reschedule Reason</label>
-        <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
-      </div>
-      <div class="detail-item">
-        <label>Rescheduled By</label>
-        <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
-      </div>
-      <div class="detail-item">
-        <label>Rescheduled Date</label>
-        <span>${formatTimestamp(r.rescheduledAt)}</span>
-      </div>
-    `;
-  }
-  
-  viewModalBody.innerHTML = `
-    <div class="detail-grid">
-      <div class="detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
-      <div class="detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
-      <div class="detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
-      <div class="detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
-      <div class="detail-item"><label>Date</label><span>${formatDate(r.date)}</span></div>
-      <div class="detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
-      <div class="detail-item"><label>Status</label><span><span class="badge badge--${r.displayStatus?.toLowerCase()}">${r.displayStatus || "—"}</span></span></div>
-      <div class="detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
-      <div class="detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
-      ${rescheduleHtml}
-      <div class="detail-item"><label>Created</label><span>${formatTimestamp(r.createdAt)}</span></div>
-    </div>
-  `;
-
-  viewModal.classList.add("open");
-}
-
-function closeViewModalHandler() {
-  viewModal.classList.remove("open");
-  viewingRecord = null;
-}
-
-if (closeViewModal) closeViewModal.addEventListener("click", closeViewModalHandler);
-if (viewCloseBtn) viewCloseBtn.addEventListener("click", closeViewModalHandler);
-if (viewModal) {
-  viewModal.addEventListener("click", e => {
-    if (e.target === viewModal) closeViewModalHandler();
+    btn.addEventListener('click', btn._listener);
   });
 }
 
 // ── Confirmation Modal ────────────────────────────────────────
-const CONFIRM_CONFIG = {
-  archive: { icon: "📦", title: "Archive this Request?", message: "This request will be moved to the Archive.", btnLabel: "Archive", btnClass: "btn--primary" },
-  delete: { icon: "🗑️", title: "Delete this Request?", message: "This action is permanent and cannot be undone.", btnLabel: "Delete", btnClass: "btn--danger" }
-};
-
-function askConfirm(type, id, record) {
-  const cfg = CONFIRM_CONFIG[type];
-  if (!cfg) return;
+function openConfirmModal(type, id, record) {
   pendingAction = { type, id, record };
-  if (confirmIcon) confirmIcon.textContent = cfg.icon;
-  if (confirmTitle) confirmTitle.textContent = cfg.title;
-  if (confirmMessage) confirmMessage.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}</strong><br><strong>Event:</strong> ${escapeHtml(record.event || "—")}<br><br>${cfg.message}`;
-  if (confirmProceed) {
-    confirmProceed.textContent = cfg.btnLabel;
-    confirmProceed.className = `btn ${cfg.btnClass}`;
+  
+  const config = {
+    archive: { icon: "📦", title: "Archive Request", msg: `Move "${record.event}" to archive?` },
+    delete: { icon: "🗑️", title: "Delete Request", msg: `Permanently delete "${record.event}"? This cannot be undone.` }
+  };
+  
+  const cfg = config[type];
+  if (cfg) {
+    if (confirmIcon) confirmIcon.textContent = cfg.icon;
+    if (confirmTitle) confirmTitle.textContent = cfg.title;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname)}</strong><br>${cfg.msg}`;
   }
-  confirmModal.classList.add("open");
+  
+  if (confirmModal) confirmModal.classList.remove("hidden");
 }
 
-if (confirmCancel) {
-  confirmCancel.addEventListener("click", () => {
-    confirmModal.classList.remove("open");
-    pendingAction = null;
-  });
+function closeConfirmModal() {
+  if (confirmModal) confirmModal.classList.add("hidden");
+  pendingAction = null;
 }
-if (confirmModal) {
-  confirmModal.addEventListener("click", e => {
-    if (e.target === confirmModal) {
-      confirmModal.classList.remove("open");
-      pendingAction = null;
-    }
-  });
-}
-if (confirmProceed) {
-  confirmProceed.addEventListener("click", async () => {
+
+if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
+if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
+if (confirmOk) {
+  confirmOk.addEventListener("click", async () => {
     if (!pendingAction) return;
-    confirmModal.classList.remove("open");
-    confirmProceed.disabled = true;
+    closeConfirmModal();
+    
     const { type, id, record } = pendingAction;
-    pendingAction = null;
+    
     try {
       const ref = doc(db, COLLECTIONS.REQUESTS, id);
       if (type === "archive") {
         await updateDoc(ref, { archived: true, archivedAt: new Date() });
-        await logAdminAction({
-          actionType: "archive",
-          requestId: record.requestId || id,
-          adminId: currentAdmin?.id,
-          adminName: currentAdmin?.fullName || currentAdmin?.username,
-          details: `Archived request for ${record.fullname} — ${record.event}`
-        });
-        showToast("Request archived successfully.", "success");
+        showToast("Request archived successfully");
       }
       if (type === "delete") {
         await deleteDoc(ref);
-        await logAdminAction({
-          actionType: "delete",
-          requestId: record.requestId || id,
-          adminId: currentAdmin?.id,
-          adminName: currentAdmin?.fullName || currentAdmin?.username,
-          details: `Deleted request for ${record.fullname} — ${record.event}`
-        });
-        showToast("Request deleted permanently.", "success");
+        showToast("Request deleted successfully");
       }
       await loadHistory();
     } catch (err) {
-      console.error("Action error:", err);
-      showToast("Something went wrong. Please try again.", "error");
-    } finally {
-      confirmProceed.disabled = false;
+      showToast("Operation failed: " + err.message, "error");
     }
   });
 }
 
-// ── Sidebar toggle with overlay for mobile ────────────────────
-if (hamburgerBtn) {
-  hamburgerBtn.addEventListener("click", () => {
+// ── Sidebar Toggle ────────────────────────────────────────────
+if (hamburger) {
+  hamburger.addEventListener("click", () => {
     sidebar.classList.toggle("open");
     if (sidebarOverlay) sidebarOverlay.classList.toggle("show");
   });
@@ -566,56 +513,74 @@ if (sidebarOverlay) {
     sidebarOverlay.classList.remove("show");
   });
 }
+
+// History submenu toggle
+if (historyArrow) {
+  historyArrow.addEventListener("click", (e) => {
+    e.stopPropagation();
+    historyMenu.classList.toggle("expanded");
+    historySub.classList.toggle("open");
+  });
+}
 if (historyMenu) {
   historyMenu.addEventListener("click", (e) => {
-    e.stopPropagation();
-    historyMenu.classList.toggle("open");
-    if (historySub) historySub.classList.toggle("open");
+    if (e.target === historyArrow || (historyArrow && historyArrow.contains(e.target))) return;
+    historyMenu.classList.toggle("expanded");
+    historySub.classList.toggle("open");
   });
 }
-if (historyMenu) historyMenu.classList.add("open");
 if (historySub) historySub.classList.add("open");
+if (historyMenu) historyMenu.classList.add("expanded");
 
-function switchTab(tab) {
-  const btns = document.querySelectorAll(".tab-btn");
-  if (!btns.length) return;
-  const btn = Array.from(btns).find(b => b.dataset.tab === tab);
-  if (btn) {
-    btns.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    renderTab(tab);
-  }
+// ── Profile Dropdown ──────────────────────────────────────────
+if (profileTrigger) {
+  profileTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (dropdownMenu) dropdownMenu.classList.toggle("show");
+  });
+  document.addEventListener("click", () => {
+    if (dropdownMenu) dropdownMenu.classList.remove("show");
+  });
 }
 
-// Logout functionality
-const logoutBtn = document.getElementById('logout-btn');
-const logoutModalElem = document.getElementById('logout-modal');
-const modalCancelBtn = document.getElementById('modal-cancel');
-const modalConfirmBtn = document.getElementById('modal-confirm');
-
+// ── Logout ────────────────────────────────────────────────────
 if (logoutBtn) {
-  logoutBtn.addEventListener('click', () => {
-    if (logoutModalElem) logoutModalElem.classList.remove('hidden');
+  logoutBtn.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.remove("hidden");
   });
 }
-if (modalCancelBtn) {
-  modalCancelBtn.addEventListener('click', () => {
-    if (logoutModalElem) logoutModalElem.classList.add('hidden');
+if (modalCancel) {
+  modalCancel.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.add("hidden");
   });
 }
-if (modalConfirmBtn) {
-  modalConfirmBtn.addEventListener('click', () => {
+if (modalConfirm) {
+  modalConfirm.addEventListener("click", () => {
     sessionStorage.clear();
-    window.location.href = '../Auth/auth.login.html';
+    window.location.href = "../Auth/auth.login.html";
   });
 }
 
-// Close sidebar when clicking on a link (mobile)
-document.querySelectorAll('.nav-item, .nav-sub-item').forEach(link => {
+// ── Fullscreen Toggle ─────────────────────────────────────────
+const topbarExpand = document.getElementById("topbar-expand");
+if (topbarExpand) {
+  topbarExpand.addEventListener("click", async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  });
+}
+
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   link.addEventListener('click', () => {
     if (window.innerWidth < 768) {
-      sidebar.classList.remove('open');
+      if (sidebar) sidebar.classList.remove('open');
       if (sidebarOverlay) sidebarOverlay.classList.remove('show');
     }
   });
 });
+
+console.log('History page initialized - waiting for data...');

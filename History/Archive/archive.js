@@ -1,5 +1,5 @@
 // ============================================================
-// archive.js  —  FaciliTrack Archive Page (WITH SKELETON LOADING)
+// archive.js  —  FaciliTrack Archive Page
 // ============================================================
 import {
   db,
@@ -16,7 +16,8 @@ import {
   deleteDoc,
   query,
   where,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "../../DatabaseConn/dbconn.js";
 
 // ── State ────────────────────────────────────────────────────
@@ -26,51 +27,99 @@ let filteredItems = [];
 const PAGE_SIZE = 10;
 let pendingAction = null;
 let currentAdmin = null;
-let isLoading = true;
 let searchTerm = '';
 
 // ── DOM References ────────────────────────────────────────────
-const archiveBody = document.getElementById("archiveBody");
-const pageNumbers = document.getElementById("pageNumbers");
-const pagePrev = document.getElementById("pagePrev");
-const pageNext = document.getElementById("pageNext");
-const adminFullName = document.getElementById("adminFullName");
-const adminAvatar = document.getElementById("adminAvatar");
+const archiveBody = document.getElementById("archive-body");
+const emptyDiv = document.getElementById("archive-empty");
 const searchInput = document.getElementById("archive-search");
 const totalArchivedSpan = document.getElementById("totalArchived");
 const archivedThisMonthSpan = document.getElementById("archivedThisMonth");
+const paginationDiv = document.getElementById("archive-pagination");
+const pageNumbersDiv = document.getElementById("page-numbers");
+const pagePrevBtn = document.getElementById("page-prev");
+const pageNextBtn = document.getElementById("page-next");
+
+// Topbar elements
+const adminFullName = document.getElementById("topbar-fullname");
+const adminAvatar = document.getElementById("topbar-avatar");
+const profileTrigger = document.getElementById("profile-trigger");
+const dropdownMenu = document.getElementById("dropdown-menu");
+const logoutBtn = document.getElementById("logout-btn");
 
 // Modals
-const viewModal = document.getElementById("viewModal");
-const viewModalBody = document.getElementById("viewModalBody");
-const closeViewModal = document.getElementById("closeViewModal");
-const viewCloseBtn = document.getElementById("viewCloseBtn");
+const viewModal = document.getElementById("view-modal");
+const viewModalDetails = document.getElementById("view-modal-details");
+const viewModalBack = document.getElementById("view-modal-back");
+const viewModalOverlay = document.getElementById("view-modal-overlay");
 
-const confirmModal = document.getElementById("confirmModal");
-const confirmIcon = document.getElementById("confirmIcon");
-const confirmTitle = document.getElementById("confirmTitle");
-const confirmMessage = document.getElementById("confirmMessage");
-const confirmCancel = document.getElementById("confirmCancel");
-const confirmProceed = document.getElementById("confirmProceed");
+const confirmModal = document.getElementById("confirm-modal");
+const confirmIcon = document.getElementById("confirm-icon");
+const confirmTitle = document.getElementById("confirm-title");
+const confirmMsg = document.getElementById("confirm-msg");
+const confirmCancel = document.getElementById("confirm-cancel");
+const confirmOk = document.getElementById("confirm-ok");
+const confirmOverlay = document.getElementById("confirm-modal-overlay");
 
-const toast = document.getElementById("toast");
-const toastMsg = document.getElementById("toastMsg");
+// Logout modal
+const logoutModal = document.getElementById("logout-modal");
+const modalCancel = document.getElementById("modal-cancel");
+const modalConfirm = document.getElementById("modal-confirm");
+const modalOverlay = document.getElementById("modal-overlay");
 
+// Sidebar elements
+const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
-const mainWrapper = document.getElementById("mainWrapper");
-const hamburgerBtn = document.getElementById("hamburgerBtn");
+const sidebarOverlay = document.getElementById("sidebar-overlay");
 const historyMenu = document.getElementById("historyMenu");
 const historySub = document.getElementById("historySub");
+const historyArrow = document.getElementById("historyArrow");
 
-// Store original skeleton HTML
-let originalSkeletonHTML = '';
+// ── Helper Functions ──────────────────────────────────────────
 
-// Helper functions
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/[&<>"']/g, m => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[m]);
+}
+
+function showToast(message, type = "success") {
+  const existingToast = document.querySelector('.archive-toast');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = `archive-toast ${type}`;
+  toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${message}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function updateSidebarActive() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  if (historyMenu) historyMenu.classList.add('active');
+  document.querySelectorAll('.nav-child').forEach(item => {
+    item.classList.remove('active');
+  });
+  const archiveLink = document.querySelector('.nav-child[href="archive.html"]');
+  if (archiveLink) archiveLink.classList.add('active');
+}
+
+function normalizeStatus(status) {
+  if (!status) return 'Pending';
+  const statusLower = String(status).toLowerCase();
+  if (statusLower === 'approved') return 'Approved';
+  if (statusLower === 'rejected') return 'Rejected';
+  if (statusLower === 'finished') return 'Finished';
+  if (statusLower === 'rescheduled') return 'Rescheduled';
+  return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
 }
 
 function getTimeValue(ts) {
@@ -81,78 +130,11 @@ function getTimeValue(ts) {
   return new Date(ts).getTime() || 0;
 }
 
-let toastTimer;
-function showToast(msg, type = "success") {
-  if (!toastMsg) return;
-  toastMsg.textContent = msg;
-  toast.className = `toast ${type}`;
-  toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
-}
-
-function updateSidebarActive() {
-  document.querySelectorAll('.nav-item, .nav-sub-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  if (historyMenu) historyMenu.classList.add('active');
-  const archiveLink = document.querySelector('.nav-sub-item[href="archive.html"]');
-  if (archiveLink) archiveLink.classList.add('active');
-}
-
-function normalizeStatus(status) {
-  if (!status) return 'Pending';
-  const statusLower = status.toLowerCase();
-  if (statusLower === 'approved') return 'Approved';
-  if (statusLower === 'rejected') return 'Rejected';
-  if (statusLower === 'finished') return 'Finished';
-  if (statusLower === 'rescheduled') return 'Rescheduled';
-  if (statusLower === 'pending') return 'Pending';
-  return status;
-}
-
-// ── Skeleton Loading Functions ────────────────────────────────
-
-function showSkeletonLoading() {
-  if (archiveBody && !originalSkeletonHTML) {
-    originalSkeletonHTML = archiveBody.innerHTML;
-  }
-  
-  if (archiveBody) {
-    const skeletonRows = [];
-    for (let i = 0; i < 5; i++) {
-      skeletonRows.push(`
-        <tr class="skeleton-row">
-          <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
-        </tr>
-      `);
-    }
-    archiveBody.innerHTML = skeletonRows.join('');
-  }
-  
-  // Show skeleton for stats
-  if (totalArchivedSpan) totalArchivedSpan.textContent = '--';
-  if (archivedThisMonthSpan) archivedThisMonthSpan.textContent = '--';
-}
-
-function hideSkeletonAndShowContent() {
-  // Stats will be updated by updateStats function
-  isLoading = false;
-}
-
 // ── Auth Check ─────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   const adminFromSession = getCurrentAdmin();
   
   if (!user && !adminFromSession) {
-    console.log('No authentication found, redirecting to login...');
     window.location.href = "../../Auth/auth.login.html";
     return;
   }
@@ -176,7 +158,19 @@ onAuthStateChanged(auth, async (user) => {
 
 // ── Load Archived Requests ────────────────────────────────────
 async function loadArchive() {
-  showSkeletonLoading();
+  // Show skeleton loading
+  if (archiveBody) {
+    archiveBody.innerHTML = `
+      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
+      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
+      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
+      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
+      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
+    `;
+  }
+  
+  if (totalArchivedSpan) totalArchivedSpan.textContent = '--';
+  if (archivedThisMonthSpan) archivedThisMonthSpan.textContent = '--';
   
   try {
     const q = query(collection(db, COLLECTIONS.REQUESTS), where("archived", "==", true));
@@ -192,21 +186,15 @@ async function loadArchive() {
       });
     });
 
-    // Sort by archivedAt descending (newest first)
     archivedItems.sort((a, b) => getTimeValue(b.archivedAt) - getTimeValue(a.archivedAt));
     
-    // Update stats
     updateStats();
-    
-    // Apply current search filter
     applySearch();
-    
-    hideSkeletonAndShowContent();
     
   } catch (err) {
     console.error("loadArchive error:", err);
     if (archiveBody) {
-      archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:var(--red)">Failed to load archive. Please refresh.<\/td><\/tr>`;
+      archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Failed to load archive: ${err.message}</td></tr>`;
     }
     showToast("Failed to load archive", "error");
   }
@@ -230,32 +218,26 @@ function updateStats() {
 
 // ── Search Function ───────────────────────────────────────────
 function applySearch() {
-  if (!searchTerm.trim()) {
-    filteredItems = [...archivedItems];
-  } else {
-    const term = searchTerm.toLowerCase();
-    filteredItems = archivedItems.filter(item => 
-      (item.fullname || '').toLowerCase().includes(term) ||
-      (item.event || '').toLowerCase().includes(term) ||
-      (item.venue || '').toLowerCase().includes(term) ||
-      (item.idNumber || item.userId || '').toLowerCase().includes(term)
-    );
-  }
+  const term = searchInput?.value.toLowerCase() || '';
+  filteredItems = term ? archivedItems.filter(item => 
+    (item.fullname || '').toLowerCase().includes(term) ||
+    (item.event || '').toLowerCase().includes(term) ||
+    (item.venue || '').toLowerCase().includes(term) ||
+    (item.idNumber || item.userId || '').toLowerCase().includes(term)
+  ) : [...archivedItems];
   
   currentPage = 1;
   renderPage();
   renderPagination();
 }
 
-// Search input listener
 if (searchInput) {
-  searchInput.addEventListener('input', (e) => {
-    searchTerm = e.target.value;
+  searchInput.addEventListener('input', () => {
     applySearch();
   });
 }
 
-// ── Render current page ───────────────────────────────────────
+// ── Render Page ───────────────────────────────────────────────
 function renderPage() {
   const start = (currentPage - 1) * PAGE_SIZE;
   const pageItems = filteredItems.slice(start, start + PAGE_SIZE);
@@ -263,21 +245,26 @@ function renderPage() {
   if (!archiveBody) return;
   
   if (!filteredItems.length) {
-    archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row"><i class="fa-solid fa-box-open"></i> No archived requests found.<\/td><\/tr>`;
+    archiveBody.innerHTML = '';
+    if (emptyDiv) emptyDiv.classList.remove('hidden');
+    if (paginationDiv) paginationDiv.style.display = 'none';
     return;
   }
-
+  
+  if (emptyDiv) emptyDiv.classList.add('hidden');
+  if (paginationDiv) paginationDiv.style.display = 'flex';
+  
   archiveBody.innerHTML = pageItems.map(r => buildRow(r)).join("");
   attachRowListeners();
 }
 
 function buildRow(r) {
-  const badgeClass = {
-    Approved: "badge--approved",
-    Finished: "badge--finished",
-    Rejected: "badge--rejected",
-    Rescheduled: "badge--rescheduled"
-  }[r.displayStatus] || "";
+  let badgeClass = '';
+  if (r.displayStatus === 'Approved') badgeClass = 'archive-badge--approved';
+  else if (r.displayStatus === 'Finished') badgeClass = 'archive-badge--finished';
+  else if (r.displayStatus === 'Rejected') badgeClass = 'archive-badge--rejected';
+  else if (r.displayStatus === 'Rescheduled') badgeClass = 'archive-badge--rescheduled';
+  else badgeClass = '';
 
   return `
     <tr data-id="${r.id}">
@@ -286,17 +273,17 @@ function buildRow(r) {
       <td>${escapeHtml(r.event || "—")}<\/td>
       <td>${escapeHtml(r.venue || "—")}<\/td>
       <td>${formatDate(r.date)}<\/td>
-      <td><span class="badge ${badgeClass}">${r.displayStatus || "—"}<\/span><\/td>
+      <td><span class="archive-badge ${badgeClass}">${r.displayStatus || "—"}</span><\/td>
       <td>${formatTimestamp(r.archivedAt)}<\/td>
       <td>
-        <div class="actions-cell">
-          <button class="act-btn act-btn--view" data-action="view" data-id="${r.id}" title="View Details">
+        <div class="archive-actions">
+          <button class="archive-action-btn archive-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
             <i class="fa-solid fa-eye"></i><span>View</span>
           </button>
-          <button class="act-btn act-btn--unarchive" data-action="unarchive" data-id="${r.id}" title="Un-archive">
+          <button class="archive-action-btn archive-action-btn--unarchive" data-action="unarchive" data-id="${r.id}" title="Un-archive">
             <i class="fa-solid fa-rotate-left"></i><span>Un-archive</span>
           </button>
-          <button class="act-btn act-btn--delete" data-action="delete" data-id="${r.id}" title="Delete Permanently">
+          <button class="archive-action-btn archive-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete Permanently">
             <i class="fa-regular fa-trash-can"></i><span>Delete</span>
           </button>
         <\/div>
@@ -307,191 +294,99 @@ function buildRow(r) {
 
 function attachRowListeners() {
   if (!archiveBody) return;
-  archiveBody.querySelectorAll(".act-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
+  archiveBody.querySelectorAll(".archive-action-btn").forEach(btn => {
+    btn.removeEventListener('click', btn._listener);
+    btn._listener = (e) => {
       e.stopPropagation();
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       const record = filteredItems.find(r => r.id === id);
       if (!record) return;
       if (action === "view") openViewModal(record);
-      if (action === "unarchive") askConfirm("unarchive", id, record);
-      if (action === "delete") askConfirm("delete", id, record);
-    });
+      if (action === "unarchive") openConfirmModal("unarchive", id, record);
+      if (action === "delete") openConfirmModal("delete", id, record);
+    };
+    btn.addEventListener('click', btn._listener);
   });
 }
 
 // ── View Modal ────────────────────────────────────────────────
-let viewingRecord = null;
-
 function openViewModal(r) {
-  if (!viewModalBody) return;
-  viewingRecord = r;
+  if (!viewModalDetails) return;
   
   let rescheduleHtml = '';
   if (r.displayStatus === "Rescheduled") {
     rescheduleHtml = `
-      <div class="detail-item full">
+      <div class="archive-detail-item full">
         <label>Reschedule Reason</label>
-        <span>${escapeHtml(r.rescheduleReason || "No reason provided")}<\/span>
-      <\/div>
-      <div class="detail-item">
+        <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
+      </div>
+      <div class="archive-detail-item">
         <label>Rescheduled By</label>
-        <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}<\/span>
-      <\/div>
+        <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
+      </div>
     `;
   }
   
-  viewModalBody.innerHTML = `
-    <div class="detail-grid">
-      <div class="detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}<\/span><\/div>
-      <div class="detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}<\/span><\/div>
-      <div class="detail-item"><label>Event<\/label><span>${escapeHtml(r.event || "—")}<\/span><\/div>
-      <div class="detail-item"><label>Venue<\/label><span>${escapeHtml(r.venue || "—")}<\/span><\/div>
-      <div class="detail-item"><label>Original Date<\/label><span>${formatDate(r.date)}<\/span><\/div>
-      <div class="detail-item"><label>Time<\/label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}<\/span><\/div>
-      <div class="detail-item"><label>Status<\/label><span><span class="badge badge--${r.displayStatus?.toLowerCase()}">${r.displayStatus || "—"}<\/span><\/span><\/div>
-      <div class="detail-item"><label>Items<\/label><span>${escapeHtml(r.item || "—")}<\/span><\/div>
-      <div class="detail-item full"><label>Description<\/label><span>${escapeHtml(r.eventDescription || "—")}<\/span><\/div>
+  viewModalDetails.innerHTML = `
+    <div class="archive-detail-grid">
+      <div class="archive-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
+      <div class="archive-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
+      <div class="archive-detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
+      <div class="archive-detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
+      <div class="archive-detail-item"><label>Original Date</label><span>${formatDate(r.date)}</span></div>
+      <div class="archive-detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
+      <div class="archive-detail-item"><label>Status</label><span>${r.displayStatus || "—"}</span></div>
+      <div class="archive-detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
+      <div class="archive-detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
       ${rescheduleHtml}
-      <div class="detail-item"><label>Archived Date<\/label><span>${formatTimestamp(r.archivedAt)}<\/span><\/div>
-      <div class="detail-item"><label>Created<\/label><span>${formatTimestamp(r.createdAt)}<\/span><\/div>
-    <\/div>
+      <div class="archive-detail-item"><label>Archived Date</label><span>${formatTimestamp(r.archivedAt)}</span></div>
+    </div>
   `;
 
-  viewModal.classList.add("open");
+  viewModal.classList.remove("hidden");
 }
 
-function closeViewModalHandler() {
-  viewModal.classList.remove("open");
-  viewingRecord = null;
+function closeViewModal() {
+  viewModal.classList.add("hidden");
 }
 
-if (closeViewModal) closeViewModal.addEventListener("click", closeViewModalHandler);
-if (viewCloseBtn) viewCloseBtn.addEventListener("click", closeViewModalHandler);
-if (viewModal) {
-  viewModal.addEventListener("click", e => {
-    if (e.target === viewModal) closeViewModalHandler();
-  });
-}
-
-// ── Pagination ────────────────────────────────────────────────
-function renderPagination() {
-  const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
-  const paginationRow = document.getElementById("paginationRow");
-  if (!paginationRow) return;
-
-  if (totalPages <= 1) {
-    paginationRow.style.display = "none";
-    return;
-  }
-  paginationRow.style.display = "flex";
-
-  if (pageNumbers) {
-    pageNumbers.innerHTML = "";
-    
-    // Show first page
-    const firstBtn = document.createElement("button");
-    firstBtn.className = `page-num ${1 === currentPage ? "active" : ""}`;
-    firstBtn.textContent = "1";
-    firstBtn.addEventListener("click", () => goToPage(1));
-    pageNumbers.appendChild(firstBtn);
-    
-    // Show ellipsis if needed
-    if (currentPage > 3) {
-      const ellipsis = document.createElement("span");
-      ellipsis.textContent = "...";
-      ellipsis.style.padding = "0 4px";
-      pageNumbers.appendChild(ellipsis);
-    }
-    
-    // Show pages around current page
-    let startPage = Math.max(2, currentPage - 1);
-    let endPage = Math.min(totalPages - 1, currentPage + 1);
-    
-    for (let i = startPage; i <= endPage; i++) {
-      if (i === 1 || i === totalPages) continue;
-      const btn = document.createElement("button");
-      btn.className = `page-num ${i === currentPage ? "active" : ""}`;
-      btn.textContent = i;
-      btn.addEventListener("click", () => goToPage(i));
-      pageNumbers.appendChild(btn);
-    }
-    
-    // Show ellipsis if needed
-    if (currentPage < totalPages - 2) {
-      const ellipsis = document.createElement("span");
-      ellipsis.textContent = "...";
-      ellipsis.style.padding = "0 4px";
-      pageNumbers.appendChild(ellipsis);
-    }
-    
-    // Show last page if more than 1
-    if (totalPages > 1) {
-      const lastBtn = document.createElement("button");
-      lastBtn.className = `page-num ${totalPages === currentPage ? "active" : ""}`;
-      lastBtn.textContent = totalPages;
-      lastBtn.addEventListener("click", () => goToPage(totalPages));
-      pageNumbers.appendChild(lastBtn);
-    }
-  }
-  
-  if (pagePrev) pagePrev.disabled = currentPage === 1;
-  if (pageNext) pageNext.disabled = currentPage === totalPages;
-}
-
-function goToPage(page) {
-  const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
-  if (page < 1 || page > totalPages) return;
-  currentPage = page;
-  renderPage();
-  renderPagination();
-}
-
-if (pagePrev) pagePrev.addEventListener("click", () => goToPage(currentPage - 1));
-if (pageNext) pageNext.addEventListener("click", () => goToPage(currentPage + 1));
+if (viewModalBack) viewModalBack.addEventListener("click", closeViewModal);
+if (viewModalOverlay) viewModalOverlay.addEventListener("click", closeViewModal);
 
 // ── Confirmation Modal ────────────────────────────────────────
-const CONFIRM_CONFIG = {
-  unarchive: { icon: "📤", title: "Un-archive this Request?", message: "This request will be moved back to History.", btnLabel: "Un-archive", btnClass: "btn--primary" },
-  delete: { icon: "🗑️", title: "Delete this Request Permanently?", message: "This action is permanent and cannot be undone. The request will be removed completely from the database.", btnLabel: "Delete Permanently", btnClass: "btn--danger" }
-};
-
-function askConfirm(type, id, record) {
-  const cfg = CONFIRM_CONFIG[type];
-  if (!cfg) return;
+function openConfirmModal(type, id, record) {
   pendingAction = { type, id, record };
-  if (confirmIcon) confirmIcon.textContent = cfg.icon;
-  if (confirmTitle) confirmTitle.textContent = cfg.title;
-  if (confirmMessage) confirmMessage.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}<\/strong><br><strong>Event:</strong> ${escapeHtml(record.event || "—")}<br><br>${cfg.message}`;
-  if (confirmProceed) {
-    confirmProceed.textContent = cfg.btnLabel;
-    confirmProceed.className = `btn ${cfg.btnClass}`;
+  
+  const config = {
+    unarchive: { icon: "📤", title: "Un-archive Request", msg: `Move "${record.event}" back to History?` },
+    delete: { icon: "🗑️", title: "Delete Permanently", msg: `Permanently delete "${record.event}"? This cannot be undone.` }
+  };
+  
+  const cfg = config[type];
+  if (cfg) {
+    if (confirmIcon) confirmIcon.textContent = cfg.icon;
+    if (confirmTitle) confirmTitle.textContent = cfg.title;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname)}</strong><br>${cfg.msg}`;
   }
-  confirmModal.classList.add("open");
+  
+  confirmModal.classList.remove("hidden");
 }
 
-if (confirmCancel) {
-  confirmCancel.addEventListener("click", () => {
-    confirmModal.classList.remove("open");
-    pendingAction = null;
-  });
+function closeConfirmModal() {
+  confirmModal.classList.add("hidden");
+  pendingAction = null;
 }
-if (confirmModal) {
-  confirmModal.addEventListener("click", e => {
-    if (e.target === confirmModal) {
-      confirmModal.classList.remove("open");
-      pendingAction = null;
-    }
-  });
-}
-if (confirmProceed) {
-  confirmProceed.addEventListener("click", async () => {
+
+if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
+if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
+if (confirmOk) {
+  confirmOk.addEventListener("click", async () => {
     if (!pendingAction) return;
-    confirmModal.classList.remove("open");
-    confirmProceed.disabled = true;
+    closeConfirmModal();
+    
     const { type, id, record } = pendingAction;
-    pendingAction = null;
+    
     try {
       const ref = doc(db, COLLECTIONS.REQUESTS, id);
       if (type === "unarchive") {
@@ -503,7 +398,7 @@ if (confirmProceed) {
           adminName: currentAdmin?.fullName || currentAdmin?.username,
           details: `Un-archived request for ${record.fullname} — ${record.event}`
         });
-        showToast("Request moved back to History.", "success");
+        showToast("Request moved back to History", "success");
       }
       if (type === "delete") {
         await deleteDoc(ref);
@@ -514,54 +409,149 @@ if (confirmProceed) {
           adminName: currentAdmin?.fullName || currentAdmin?.username,
           details: `Permanently deleted archived request for ${record.fullname} — ${record.event}`
         });
-        showToast("Request permanently deleted.", "success");
+        showToast("Request permanently deleted", "success");
       }
       await loadArchive();
     } catch (err) {
-      console.error("Action error:", err);
-      showToast("Something went wrong. Please try again.", "error");
-    } finally {
-      confirmProceed.disabled = false;
+      showToast("Operation failed: " + err.message, "error");
     }
   });
 }
 
-// ── Sidebar toggle ────────────────────────────────────────────
-if (hamburgerBtn) {
-  hamburgerBtn.addEventListener("click", () => {
-    sidebar.classList.toggle("collapsed");
-    mainWrapper.classList.toggle("expanded");
+// ── Pagination ────────────────────────────────────────────────
+function renderPagination() {
+  const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
+  
+  if (!paginationDiv || !pageNumbersDiv) return;
+
+  if (totalPages <= 1) {
+    paginationDiv.style.display = "none";
+    return;
+  }
+  
+  paginationDiv.style.display = "flex";
+  pageNumbersDiv.innerHTML = "";
+  
+  if (pagePrevBtn) pagePrevBtn.disabled = currentPage === 1;
+  if (pageNextBtn) pageNextBtn.disabled = currentPage === totalPages;
+  
+  let startPage = Math.max(1, currentPage - 2);
+  let endPage = Math.min(totalPages, startPage + 4);
+  
+  if (endPage - startPage + 1 < 5) {
+    startPage = Math.max(1, endPage - 4);
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    const btn = document.createElement("button");
+    btn.className = `archive-page-num ${i === currentPage ? "active" : ""}`;
+    btn.textContent = i;
+    btn.addEventListener("click", () => goToPage(i));
+    pageNumbersDiv.appendChild(btn);
+  }
+}
+
+function goToPage(page) {
+  const totalPages = Math.ceil(filteredItems.length / PAGE_SIZE);
+  if (page < 1 || page > totalPages) return;
+  currentPage = page;
+  renderPage();
+  renderPagination();
+}
+
+if (pagePrevBtn) pagePrevBtn.addEventListener("click", () => goToPage(currentPage - 1));
+if (pageNextBtn) pageNextBtn.addEventListener("click", () => goToPage(currentPage + 1));
+
+// ── Sidebar Toggle ────────────────────────────────────────────
+if (hamburger) {
+  hamburger.addEventListener("click", () => {
+    sidebar.classList.toggle("open");
+    if (sidebarOverlay) sidebarOverlay.classList.toggle("show");
+    hamburger.classList.toggle("open");
+  });
+}
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener("click", () => {
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.remove("show");
+    hamburger.classList.remove("open");
+  });
+}
+
+// History submenu toggle
+if (historyArrow) {
+  historyArrow.addEventListener("click", (e) => {
+    e.stopPropagation();
+    historyMenu.classList.toggle("expanded");
+    historySub.classList.toggle("open");
   });
 }
 if (historyMenu) {
   historyMenu.addEventListener("click", (e) => {
-    e.stopPropagation();
-    historyMenu.classList.toggle("open");
+    if (e.target === historyArrow || (historyArrow && historyArrow.contains(e.target))) return;
+    historyMenu.classList.toggle("expanded");
     historySub.classList.toggle("open");
   });
 }
-historyMenu.classList.add("open");
-historySub.classList.add("open");
+historySub?.classList.add("open");
+historyMenu?.classList.add("expanded");
 
-// Logout functionality
-const logoutBtn = document.getElementById('logout-btn');
-const logoutModalElem = document.getElementById('logout-modal');
-const modalCancelBtn = document.getElementById('modal-cancel');
-const modalConfirmBtn = document.getElementById('modal-confirm');
+// ── Profile Dropdown ──────────────────────────────────────────
+if (profileTrigger) {
+  profileTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (dropdownMenu) dropdownMenu.classList.toggle("show");
+  });
+  document.addEventListener("click", () => {
+    if (dropdownMenu) dropdownMenu.classList.remove("show");
+  });
+}
 
+// ── Logout ────────────────────────────────────────────────────
 if (logoutBtn) {
-  logoutBtn.addEventListener('click', () => {
-    logoutModalElem.classList.remove('hidden');
+  logoutBtn.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.remove("hidden");
   });
 }
-if (modalCancelBtn) {
-  modalCancelBtn.addEventListener('click', () => {
-    logoutModalElem.classList.add('hidden');
+if (modalCancel) {
+  modalCancel.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.add("hidden");
   });
 }
-if (modalConfirmBtn) {
-  modalConfirmBtn.addEventListener('click', () => {
+if (modalConfirm) {
+  modalConfirm.addEventListener("click", async () => {
+    await signOut(auth);
     sessionStorage.clear();
-    window.location.href = '../../Auth/auth.login.html';
+    window.location.href = "../../Auth/auth.login.html";
   });
 }
+if (modalOverlay) {
+  modalOverlay.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.add("hidden");
+  });
+}
+
+// ── Fullscreen Toggle ─────────────────────────────────────────
+const topbarExpand = document.getElementById("topbar-expand");
+if (topbarExpand) {
+  topbarExpand.addEventListener("click", async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  });
+}
+
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth < 768) {
+      sidebar.classList.remove('open');
+      sidebarOverlay?.classList.remove('show');
+      hamburger?.classList.remove('open');
+    }
+  });
+});
+
+console.log('Archive page initialized');
