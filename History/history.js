@@ -1,5 +1,5 @@
 // ============================================================
-// history.js  —  FaciliTrack History Page (FULLY FIXED)
+// history.js  —  FaciliTrack History Page (FULLY FIXED - ARCHIVE WORKING)
 // ============================================================
 import {
   db,
@@ -45,7 +45,13 @@ const profileTrigger = document.getElementById("profile-trigger");
 const dropdownMenu = document.getElementById("dropdown-menu");
 const logoutBtn = document.getElementById("logout-btn");
 
-// Modals
+// View Modal
+const viewModal = document.getElementById("view-modal");
+const viewModalDetails = document.getElementById("view-modal-details");
+const viewModalBack = document.getElementById("view-modal-back");
+const viewModalOverlay = document.getElementById("view-modal-overlay");
+
+// Confirmation Modal
 const confirmModal = document.getElementById("confirm-modal");
 const confirmIcon = document.getElementById("confirm-icon");
 const confirmTitle = document.getElementById("confirm-title");
@@ -58,6 +64,7 @@ const confirmOverlay = document.getElementById("confirm-modal-overlay");
 const logoutModal = document.getElementById("logout-modal");
 const modalCancel = document.getElementById("modal-cancel");
 const modalConfirm = document.getElementById("modal-confirm");
+const modalOverlay = document.getElementById("modal-overlay");
 
 // Sidebar elements
 const hamburger = document.getElementById("hamburger");
@@ -89,8 +96,7 @@ function showToast(message, type = "success") {
   document.body.appendChild(toast);
   
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(100%)';
+    toast.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
@@ -107,40 +113,23 @@ function updateSidebarActive() {
   if (historyLink) historyLink.classList.add('active');
 }
 
-// IMPORTANT: This function handles different status case formats
 function normalizeStatus(status) {
   if (!status) return 'Pending';
-  
-  // Convert to lowercase for comparison
   const statusLower = String(status).toLowerCase();
-  
   if (statusLower === 'approved') return 'Approved';
   if (statusLower === 'rejected') return 'Rejected';
   if (statusLower === 'finished') return 'Finished';
   if (statusLower === 'rescheduled') return 'Rescheduled';
-  if (statusLower === 'pending') return 'Pending';
-  
-  // If unknown, return as is with first letter capitalized
   return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
 }
 
 // ── Update Counts Function ─────────────────────────────────────
 function updateCounts() {
-  // Count based on displayStatus
   const approved = allRequests.filter(r => r.displayStatus === "Approved").length;
   const rejected = allRequests.filter(r => r.displayStatus === "Rejected").length;
   const rescheduled = allRequests.filter(r => r.displayStatus === "Rescheduled").length;
   const finished = allRequests.filter(r => r.displayStatus === "Finished").length;
   
-  console.log('=== COUNT UPDATE ===');
-  console.log('Total requests:', allRequests.length);
-  console.log('Approved:', approved);
-  console.log('Rejected:', rejected);
-  console.log('Rescheduled:', rescheduled);
-  console.log('Finished:', finished);
-  console.log('All statuses:', allRequests.map(r => ({ id: r.id, status: r.status, displayStatus: r.displayStatus })));
-  
-  // Update DOM
   if (countApprovedSpan) countApprovedSpan.textContent = approved;
   if (countRejectSpan) countRejectSpan.textContent = rejected;
   if (countRescheduledSpan) countRescheduledSpan.textContent = rescheduled;
@@ -154,30 +143,24 @@ function showSkeletonLoading() {
     for (let i = 0; i < 5; i++) {
       skeletonRows.push(`
         <tr class="skeleton-row">
-          <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 140px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 120px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 100px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 90px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 80px; height: 24px; border-radius: 20px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 130px; height: 16px;"></div></td>
-          <td><div class="skeleton-cell" style="width: 100px; height: 32px;"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-short"></div></td>
+          <td><div class="skeleton-cell-short"></div></td>
+          <td><div class="skeleton-badge"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-actions"><div class="skeleton-icon"></div></div></td>
         </tr>
       `);
     }
     historyBody.innerHTML = skeletonRows.join('');
   }
   
-  // Set counts to 0 while loading
-  if (countApprovedSpan) countApprovedSpan.textContent = '0';
-  if (countRejectSpan) countRejectSpan.textContent = '0';
-  if (countRescheduledSpan) countRescheduledSpan.textContent = '0';
-  if (countFinishedSpan) countFinishedSpan.textContent = '0';
-}
-
-function hideSkeletonAndShowContent() {
-  // Just remove skeleton class, actual content will be rendered by renderTab
-  isLoading = false;
+  if (countApprovedSpan) countApprovedSpan.textContent = '--';
+  if (countRejectSpan) countRejectSpan.textContent = '--';
+  if (countRescheduledSpan) countRescheduledSpan.textContent = '--';
+  if (countFinishedSpan) countFinishedSpan.textContent = '--';
 }
 
 // ── Auth Check ─────────────────────────────────────────────────
@@ -212,64 +195,35 @@ async function loadHistory() {
   showSkeletonLoading();
   
   try {
-    // Get ALL requests from Firestore
     const q = query(collection(db, COLLECTIONS.REQUESTS));
     const snap = await getDocs(q);
     
-    console.log('Firestore returned', snap.size, 'documents');
-
     allRequests = [];
     snap.forEach(docSnap => {
       const data = docSnap.data();
       
-      // Skip archived requests
-      if (data.archived === true) {
-        console.log('Skipping archived:', docSnap.id);
-        return;
+      // Only show non-archived requests (archived !== true)
+      if (data.archived !== true) {
+        const normalizedStatus = normalizeStatus(data.status);
+        allRequests.push({ 
+          id: docSnap.id, 
+          ...data,
+          displayStatus: normalizedStatus
+        });
       }
-      
-      const normalizedStatus = normalizeStatus(data.status);
-      
-      allRequests.push({ 
-        id: docSnap.id, 
-        ...data,
-        displayStatus: normalizedStatus,
-        originalStatus: data.status  // Keep original for debugging
-      });
     });
 
-    console.log('Processed requests:', allRequests.length);
-    console.log('Request details:', allRequests.map(r => ({ 
-      id: r.id, 
-      fullname: r.fullname,
-      originalStatus: r.originalStatus,
-      displayStatus: r.displayStatus 
-    })));
+    console.log('Loaded non-archived requests:', allRequests.length);
     
-    // Hide skeleton
-    hideSkeletonAndShowContent();
-    
-    // Update counts and render
     updateCounts();
-    
-    // Attach event listeners
     attachCardListeners();
     attachTabListeners();
-    
-    // Render the current tab
     renderTab(currentTab);
-    
-    if (allRequests.length === 0) {
-      showToast('No requests found in database', 'info');
-    } else {
-      showToast(`Loaded ${allRequests.length} requests`, 'success');
-    }
     
   } catch (err) {
     console.error("loadHistory error:", err);
-    hideSkeletonAndShowContent();
     if (historyBody) {
-      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}</td></tr>`;
+      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}<\/td><\/tr>`;
     }
     showToast("Failed to load history", "error");
   }
@@ -317,54 +271,35 @@ function attachCardListeners() {
   
   if (cardApproved) {
     cardApproved.removeEventListener('click', cardApproved._listener);
-    cardApproved._listener = () => {
-      document.querySelectorAll(".history-tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.dataset.tab === "approved") btn.classList.add("active");
-      });
-      currentTab = "approved";
-      applySearch();
-    };
+    cardApproved._listener = () => switchTab("approved");
     cardApproved.addEventListener('click', cardApproved._listener);
   }
-  
   if (cardReject) {
     cardReject.removeEventListener('click', cardReject._listener);
-    cardReject._listener = () => {
-      document.querySelectorAll(".history-tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.dataset.tab === "rejected") btn.classList.add("active");
-      });
-      currentTab = "rejected";
-      applySearch();
-    };
+    cardReject._listener = () => switchTab("rejected");
     cardReject.addEventListener('click', cardReject._listener);
   }
-  
   if (cardRescheduled) {
     cardRescheduled.removeEventListener('click', cardRescheduled._listener);
-    cardRescheduled._listener = () => {
-      document.querySelectorAll(".history-tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.dataset.tab === "rescheduled") btn.classList.add("active");
-      });
-      currentTab = "rescheduled";
-      applySearch();
-    };
+    cardRescheduled._listener = () => switchTab("rescheduled");
     cardRescheduled.addEventListener('click', cardRescheduled._listener);
   }
-  
   if (cardFinished) {
     cardFinished.removeEventListener('click', cardFinished._listener);
-    cardFinished._listener = () => {
-      document.querySelectorAll(".history-tab-btn").forEach(btn => {
-        btn.classList.remove("active");
-        if (btn.dataset.tab === "finished") btn.classList.add("active");
-      });
-      currentTab = "finished";
-      applySearch();
-    };
+    cardFinished._listener = () => switchTab("finished");
     cardFinished.addEventListener('click', cardFinished._listener);
+  }
+}
+
+function switchTab(tab) {
+  const btns = document.querySelectorAll(".history-tab-btn");
+  if (!btns.length) return;
+  const btn = Array.from(btns).find(b => b.dataset.tab === tab);
+  if (btn) {
+    btns.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentTab = tab;
+    applySearch();
   }
 }
 
@@ -382,8 +317,6 @@ function renderTab(tab, requests = allRequests) {
   
   const rows = requests.filter(r => targetStatuses.includes(r.displayStatus));
   
-  console.log(`Rendering tab "${tab}" - Found ${rows.length} requests with status:`, targetStatuses);
-
   if (!historyBody) return;
   
   if (!rows.length) {
@@ -393,7 +326,7 @@ function renderTab(tab, requests = allRequests) {
   }
   
   if (emptyDiv) emptyDiv.classList.add('hidden');
-  historyBody.innerHTML = rows.map(r => buildRow(r)).join("");
+  historyBody.innerHTML = rows.map(r => buildRow(r, tab)).join("");
   attachRowListeners();
 }
 
@@ -405,7 +338,7 @@ function getRelevantTimestamp(r) {
   return formatTimestamp(r.createdAt);
 }
 
-function buildRow(r) {
+function buildRow(r, tab) {
   const badgeClass = {
     Approved: "history-badge--approved",
     Finished: "history-badge--finished",
@@ -413,24 +346,43 @@ function buildRow(r) {
     Rescheduled: "history-badge--rescheduled"
   }[r.displayStatus] || "";
 
+  let actionsHtml = '';
+  
+  if (tab === 'approved') {
+    actionsHtml = `
+      <div class="history-actions">
+        <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
+          <i class="fa-solid fa-eye"></i><span>View</span>
+        </button>
+      </div>
+    `;
+  } else {
+    actionsHtml = `
+      <div class="history-actions">
+        <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
+          <i class="fa-solid fa-eye"></i><span>View</span>
+        </button>
+        <button class="history-action-btn history-action-btn--archive" data-action="archive" data-id="${r.id}" title="Archive">
+          <i class="fa-solid fa-box-archive"></i><span>Archive</span>
+        </button>
+        <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
+          <i class="fa-regular fa-trash-can"></i><span>Delete</span>
+        </button>
+      </div>
+    `;
+  }
+
   return `
     <tr data-id="${r.id}">
-      <td>${escapeHtml(r.idNumber || r.userId || "—")}</td>
-      <td>${escapeHtml(r.fullname || "—")}</td>
-      <td>${escapeHtml(r.event || "—")}</td>
-      <td>${escapeHtml(r.venue || "—")}</td>
-      <td>${formatDate(r.date)}</td>
-      <td><span class="history-badge ${badgeClass}">${r.displayStatus}</span></td>
-      <td>${getRelevantTimestamp(r)}</td>
-      <td><div class="history-actions">
-          <button class="history-action-btn history-action-btn--archive" data-action="archive" data-id="${r.id}" title="Archive">
-            <i class="fa-solid fa-box-archive"></i><span>Archive</span>
-          </button>
-          <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
-            <i class="fa-regular fa-trash-can"></i><span>Delete</span>
-          </button>
-        </div></td>
-    </tr>
+      <td>${escapeHtml(r.idNumber || r.userId || "—")}<\/td>
+      <td>${escapeHtml(r.fullname || "—")}<\/td>
+      <td>${escapeHtml(r.event || "—")}<\/td>
+      <td>${escapeHtml(r.venue || "—")}<\/td>
+      <td>${formatDate(r.date)}<\/td>
+      <td><span class="history-badge ${badgeClass}">${r.displayStatus}<\/span><\/td>
+      <td>${getRelevantTimestamp(r)}<\/td>
+      <td>${actionsHtml}<\/td>
+    <\/tr>
   `;
 }
 
@@ -444,58 +396,180 @@ function attachRowListeners() {
       const id = btn.dataset.id;
       const record = allRequests.find(r => r.id === id);
       if (!record) return;
-      openConfirmModal(action, id, record);
+      
+      if (action === "view") {
+        openViewModal(record);
+      } else if (action === "archive") {
+        openConfirmModal("archive", id, record);
+      } else if (action === "delete") {
+        openConfirmModal("delete", id, record);
+      }
     };
     btn.addEventListener('click', btn._listener);
   });
 }
 
-// ── Confirmation Modal ────────────────────────────────────────
+// ── View Modal ────────────────────────────────────────────────
+function openViewModal(r) {
+  if (!viewModalDetails) return;
+  
+  viewModalDetails.innerHTML = `
+    <div class="skeleton-modal-details">
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value-full"></div></div>
+    </div>
+  `;
+  viewModal.classList.remove("hidden");
+  
+  setTimeout(() => {
+    let rescheduleHtml = '';
+    if (r.displayStatus === "Rescheduled") {
+      rescheduleHtml = `
+        <div class="history-detail-item full">
+          <label>Reschedule Reason</label>
+          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}<\/span>
+        <\/div>
+        <div class="history-detail-item">
+          <label>Rescheduled By</label>
+          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}<\/span>
+        <\/div>
+      `;
+    }
+    
+    viewModalDetails.innerHTML = `
+      <div class="history-detail-grid">
+        <div class="history-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>Event<\/label><span>${escapeHtml(r.event || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>Venue<\/label><span>${escapeHtml(r.venue || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>Date<\/label><span>${formatDate(r.date)}<\/span><\/div>
+        <div class="history-detail-item"><label>Time<\/label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>Status<\/label><span>${r.displayStatus || "—"}<\/span><\/div>
+        <div class="history-detail-item"><label>Items<\/label><span>${escapeHtml(r.item || "—")}<\/span><\/div>
+        <div class="history-detail-item full"><label>Description<\/label><span>${escapeHtml(r.eventDescription || "—")}<\/span><\/div>
+        ${rescheduleHtml}
+        <div class="history-detail-item"><label>Created<\/label><span>${formatTimestamp(r.createdAt)}<\/span><\/div>
+      <\/div>
+    `;
+  }, 200);
+}
+
+function closeViewModal() {
+  viewModal.classList.add("hidden");
+}
+
+if (viewModalBack) viewModalBack.addEventListener("click", closeViewModal);
+if (viewModalOverlay) viewModalOverlay.addEventListener("click", closeViewModal);
+
+// ── Confirmation Modal for Archive/Delete ─────────────────────
 function openConfirmModal(type, id, record) {
   pendingAction = { type, id, record };
   
   const config = {
-    archive: { icon: "📦", title: "Archive Request", msg: `Move "${record.event}" to archive?` },
-    delete: { icon: "🗑️", title: "Delete Request", msg: `Permanently delete "${record.event}"? This cannot be undone.` }
+    archive: { 
+      icon: "📦", 
+      title: "Archive Request", 
+      msg: `Move "${record.event || record.fullname}" to archive?` 
+    },
+    delete: { 
+      icon: "🗑️", 
+      title: "Delete Request", 
+      msg: `Permanently delete "${record.event || record.fullname}"? This cannot be undone.` 
+    }
   };
   
   const cfg = config[type];
   if (cfg) {
     if (confirmIcon) confirmIcon.textContent = cfg.icon;
     if (confirmTitle) confirmTitle.textContent = cfg.title;
-    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname)}</strong><br>${cfg.msg}`;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}<\/strong><br>${cfg.msg}`;
   }
   
-  if (confirmModal) confirmModal.classList.remove("hidden");
+  confirmModal.classList.remove("hidden");
 }
 
 function closeConfirmModal() {
-  if (confirmModal) confirmModal.classList.add("hidden");
+  confirmModal.classList.add("hidden");
   pendingAction = null;
 }
 
 if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
 if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
+
+// ── EXECUTE ARCHIVE/DELETE ACTION (FIXED) ─────────────────────
 if (confirmOk) {
   confirmOk.addEventListener("click", async () => {
-    if (!pendingAction) return;
-    closeConfirmModal();
+    if (!pendingAction) {
+      console.log('No pending action');
+      return;
+    }
     
     const { type, id, record } = pendingAction;
+    console.log('Executing action:', type, 'for request:', id, record.fullname);
+    
+    // Close modal immediately
+    closeConfirmModal();
+    
+    // Show loading state on the confirm button
+    const originalText = confirmOk.textContent;
+    confirmOk.disabled = true;
+    confirmOk.style.opacity = '0.7';
+    confirmOk.innerHTML = '<span class="skeleton-spinner"></span> Processing...';
     
     try {
-      const ref = doc(db, COLLECTIONS.REQUESTS, id);
+      const requestRef = doc(db, COLLECTIONS.REQUESTS, id);
+      
       if (type === "archive") {
-        await updateDoc(ref, { archived: true, archivedAt: new Date() });
-        showToast("Request archived successfully");
+        console.log('Archiving request...');
+        // Update the document to set archived = true
+        await updateDoc(requestRef, { 
+          archived: true,
+          archivedAt: new Date()
+        });
+        
+        console.log('Archive successful');
+        
+        // Log the action
+        await logAdminAction({
+          actionType: "archive",
+          requestId: record.requestId || id,
+          adminId: currentAdmin?.id,
+          adminName: currentAdmin?.fullName || currentAdmin?.username,
+          details: `Archived request for ${record.fullname} — ${record.event}`
+        });
+        
+        showToast("Request archived successfully! It now appears in Archive page.", "success");
       }
+      
       if (type === "delete") {
-        await deleteDoc(ref);
-        showToast("Request deleted successfully");
+        console.log('Deleting request...');
+        await deleteDoc(requestRef);
+        console.log('Delete successful');
+        
+        await logAdminAction({
+          actionType: "delete",
+          requestId: record.requestId || id,
+          adminId: currentAdmin?.id,
+          adminName: currentAdmin?.fullName || currentAdmin?.username,
+          details: `Deleted request for ${record.fullname} — ${record.event}`
+        });
+        
+        showToast("Request deleted permanently", "success");
       }
+      
+      // Reload the history page to reflect changes
       await loadHistory();
+      
     } catch (err) {
+      console.error("Action error:", err);
       showToast("Operation failed: " + err.message, "error");
+    } finally {
+      // Restore button state
+      confirmOk.disabled = false;
+      confirmOk.style.opacity = '1';
+      confirmOk.textContent = originalText;
     }
   });
 }
@@ -505,12 +579,14 @@ if (hamburger) {
   hamburger.addEventListener("click", () => {
     sidebar.classList.toggle("open");
     if (sidebarOverlay) sidebarOverlay.classList.toggle("show");
+    hamburger.classList.toggle("open");
   });
 }
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener("click", () => {
     sidebar.classList.remove("open");
     sidebarOverlay.classList.remove("show");
+    hamburger.classList.remove("open");
   });
 }
 
@@ -560,6 +636,11 @@ if (modalConfirm) {
     window.location.href = "../Auth/auth.login.html";
   });
 }
+if (modalOverlay) {
+  modalOverlay.addEventListener("click", () => {
+    if (logoutModal) logoutModal.classList.add("hidden");
+  });
+}
 
 // ── Fullscreen Toggle ─────────────────────────────────────────
 const topbarExpand = document.getElementById("topbar-expand");
@@ -577,10 +658,11 @@ if (topbarExpand) {
 document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   link.addEventListener('click', () => {
     if (window.innerWidth < 768) {
-      if (sidebar) sidebar.classList.remove('open');
-      if (sidebarOverlay) sidebarOverlay.classList.remove('show');
+      sidebar?.classList.remove('open');
+      sidebarOverlay?.classList.remove('show');
+      hamburger?.classList.remove('open');
     }
   });
 });
 
-console.log('History page initialized - waiting for data...');
+console.log('History page initialized');

@@ -1,5 +1,5 @@
 // ============================================================
-// archive.js  —  FaciliTrack Archive Page
+// archive.js  —  FaciliTrack Archive Page (FULLY FIXED)
 // ============================================================
 import {
   db,
@@ -94,8 +94,7 @@ function showToast(message, type = "success") {
   document.body.appendChild(toast);
   
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(100%)';
+    toast.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
@@ -130,6 +129,43 @@ function getTimeValue(ts) {
   return new Date(ts).getTime() || 0;
 }
 
+// ── Loading States ────────────────────────────────────────────
+function showSkeletonLoading() {
+  if (archiveBody) {
+    const skeletonRows = [];
+    for (let i = 0; i < 5; i++) {
+      skeletonRows.push(`
+        <tr class="skeleton-row">
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-cell-short"></div></td>
+          <td><div class="skeleton-cell-short"></div></td>
+          <td><div class="skeleton-badge"></div></td>
+          <td><div class="skeleton-cell-text"></div></td>
+          <td><div class="skeleton-actions"><div class="skeleton-icon"></div><div class="skeleton-icon"></div><div class="skeleton-icon"></div></div></td>
+        </tr>
+      `);
+    }
+    archiveBody.innerHTML = skeletonRows.join('');
+  }
+  
+  if (totalArchivedSpan) totalArchivedSpan.textContent = '--';
+  if (archivedThisMonthSpan) archivedThisMonthSpan.textContent = '--';
+}
+
+function showButtonLoading(button, originalText) {
+  button.disabled = true;
+  button.style.opacity = '0.7';
+  button.innerHTML = '<span class="skeleton-spinner" style="width: 16px; height: 16px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> Processing...';
+}
+
+function restoreButton(button, originalText) {
+  button.disabled = false;
+  button.style.opacity = '1';
+  button.textContent = originalText;
+}
+
 // ── Auth Check ─────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   const adminFromSession = getCurrentAdmin();
@@ -158,19 +194,7 @@ onAuthStateChanged(auth, async (user) => {
 
 // ── Load Archived Requests ────────────────────────────────────
 async function loadArchive() {
-  // Show skeleton loading
-  if (archiveBody) {
-    archiveBody.innerHTML = `
-      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
-      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
-      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
-      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
-      <tr class="skeleton-row"><td colspan="8"><div class="skeleton-cell" style="height: 40px;"></div></td></tr>
-    `;
-  }
-  
-  if (totalArchivedSpan) totalArchivedSpan.textContent = '--';
-  if (archivedThisMonthSpan) archivedThisMonthSpan.textContent = '--';
+  showSkeletonLoading();
   
   try {
     const q = query(collection(db, COLLECTIONS.REQUESTS), where("archived", "==", true));
@@ -186,6 +210,8 @@ async function loadArchive() {
       });
     });
 
+    console.log('Loaded archived requests:', archivedItems.length);
+
     archivedItems.sort((a, b) => getTimeValue(b.archivedAt) - getTimeValue(a.archivedAt));
     
     updateStats();
@@ -194,7 +220,7 @@ async function loadArchive() {
   } catch (err) {
     console.error("loadArchive error:", err);
     if (archiveBody) {
-      archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Failed to load archive: ${err.message}</td></tr>`;
+      archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Failed to load archive: ${err.message}<\/td><\/tr>`;
     }
     showToast("Failed to load archive", "error");
   }
@@ -314,37 +340,49 @@ function attachRowListeners() {
 function openViewModal(r) {
   if (!viewModalDetails) return;
   
-  let rescheduleHtml = '';
-  if (r.displayStatus === "Rescheduled") {
-    rescheduleHtml = `
-      <div class="archive-detail-item full">
-        <label>Reschedule Reason</label>
-        <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
-      </div>
-      <div class="archive-detail-item">
-        <label>Rescheduled By</label>
-        <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
-      </div>
-    `;
-  }
-  
+  // Show skeleton in modal
   viewModalDetails.innerHTML = `
-    <div class="archive-detail-grid">
-      <div class="archive-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
-      <div class="archive-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
-      <div class="archive-detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
-      <div class="archive-detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
-      <div class="archive-detail-item"><label>Original Date</label><span>${formatDate(r.date)}</span></div>
-      <div class="archive-detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
-      <div class="archive-detail-item"><label>Status</label><span>${r.displayStatus || "—"}</span></div>
-      <div class="archive-detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
-      <div class="archive-detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
-      ${rescheduleHtml}
-      <div class="archive-detail-item"><label>Archived Date</label><span>${formatTimestamp(r.archivedAt)}</span></div>
+    <div class="skeleton-modal-details">
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
+      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value-full"></div></div>
     </div>
   `;
-
   viewModal.classList.remove("hidden");
+  
+  // Populate after short delay
+  setTimeout(() => {
+    let rescheduleHtml = '';
+    if (r.displayStatus === "Rescheduled") {
+      rescheduleHtml = `
+        <div class="archive-detail-item full">
+          <label>Reschedule Reason</label>
+          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}<\/span>
+        <\/div>
+        <div class="archive-detail-item">
+          <label>Rescheduled By</label>
+          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}<\/span>
+        <\/div>
+      `;
+    }
+    
+    viewModalDetails.innerHTML = `
+      <div class="archive-detail-grid">
+        <div class="archive-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>Event<\/label><span>${escapeHtml(r.event || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>Venue<\/label><span>${escapeHtml(r.venue || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>Original Date<\/label><span>${formatDate(r.date)}<\/span><\/div>
+        <div class="archive-detail-item"><label>Time<\/label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>Status<\/label><span>${r.displayStatus || "—"}<\/span><\/div>
+        <div class="archive-detail-item"><label>Items<\/label><span>${escapeHtml(r.item || "—")}<\/span><\/div>
+        <div class="archive-detail-item full"><label>Description<\/label><span>${escapeHtml(r.eventDescription || "—")}<\/span><\/div>
+        ${rescheduleHtml}
+        <div class="archive-detail-item"><label>Archived Date<\/label><span>${formatTimestamp(r.archivedAt)}<\/span><\/div>
+      <\/div>
+    `;
+  }, 200);
 }
 
 function closeViewModal() {
@@ -354,20 +392,28 @@ function closeViewModal() {
 if (viewModalBack) viewModalBack.addEventListener("click", closeViewModal);
 if (viewModalOverlay) viewModalOverlay.addEventListener("click", closeViewModal);
 
-// ── Confirmation Modal ────────────────────────────────────────
+// ── Confirmation Modal for Un-archive/Delete ───────────────────
 function openConfirmModal(type, id, record) {
   pendingAction = { type, id, record };
   
   const config = {
-    unarchive: { icon: "📤", title: "Un-archive Request", msg: `Move "${record.event}" back to History?` },
-    delete: { icon: "🗑️", title: "Delete Permanently", msg: `Permanently delete "${record.event}"? This cannot be undone.` }
+    unarchive: { 
+      icon: "📤", 
+      title: "Un-archive Request", 
+      msg: `Move "${record.event || record.fullname}" back to History?` 
+    },
+    delete: { 
+      icon: "🗑️", 
+      title: "Delete Permanently", 
+      msg: `Permanently delete "${record.event || record.fullname}"? This cannot be undone.` 
+    }
   };
   
   const cfg = config[type];
   if (cfg) {
     if (confirmIcon) confirmIcon.textContent = cfg.icon;
     if (confirmTitle) confirmTitle.textContent = cfg.title;
-    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname)}</strong><br>${cfg.msg}`;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}<\/strong><br>${cfg.msg}`;
   }
   
   confirmModal.classList.remove("hidden");
@@ -380,17 +426,37 @@ function closeConfirmModal() {
 
 if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
 if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
+
+// ── EXECUTE UN-ARCHIVE/DELETE ACTION ──────────────────────────
 if (confirmOk) {
   confirmOk.addEventListener("click", async () => {
-    if (!pendingAction) return;
-    closeConfirmModal();
+    if (!pendingAction) {
+      console.log('No pending action');
+      return;
+    }
     
     const { type, id, record } = pendingAction;
+    console.log('Executing action:', type, 'for request:', id);
+    
+    // Save original button text
+    const originalText = confirmOk.textContent;
+    
+    // Show loading state
+    showButtonLoading(confirmOk, originalText);
     
     try {
-      const ref = doc(db, COLLECTIONS.REQUESTS, id);
+      const requestRef = doc(db, COLLECTIONS.REQUESTS, id);
+      
       if (type === "unarchive") {
-        await updateDoc(ref, { archived: false, archivedAt: null });
+        console.log('Un-archiving request...');
+        // Update the document to set archived = false
+        await updateDoc(requestRef, { 
+          archived: false,
+          archivedAt: null
+        });
+        
+        console.log('Un-archive successful');
+        
         await logAdminAction({
           actionType: "unarchive",
           requestId: record.requestId || id,
@@ -398,10 +464,15 @@ if (confirmOk) {
           adminName: currentAdmin?.fullName || currentAdmin?.username,
           details: `Un-archived request for ${record.fullname} — ${record.event}`
         });
-        showToast("Request moved back to History", "success");
+        
+        showToast("Request moved back to History successfully!", "success");
       }
+      
       if (type === "delete") {
-        await deleteDoc(ref);
+        console.log('Deleting request...');
+        await deleteDoc(requestRef);
+        console.log('Delete successful');
+        
         await logAdminAction({
           actionType: "delete_archived",
           requestId: record.requestId || id,
@@ -409,11 +480,23 @@ if (confirmOk) {
           adminName: currentAdmin?.fullName || currentAdmin?.username,
           details: `Permanently deleted archived request for ${record.fullname} — ${record.event}`
         });
+        
         showToast("Request permanently deleted", "success");
       }
+      
+      // Close modal first
+      closeConfirmModal();
+      
+      // Reload the archive page to reflect changes
       await loadArchive();
+      
     } catch (err) {
+      console.error("Action error:", err);
       showToast("Operation failed: " + err.message, "error");
+      closeConfirmModal();
+    } finally {
+      // Restore button state
+      restoreButton(confirmOk, originalText);
     }
   });
 }
@@ -493,8 +576,8 @@ if (historyMenu) {
     historySub.classList.toggle("open");
   });
 }
-historySub?.classList.add("open");
-historyMenu?.classList.add("expanded");
+if (historySub) historySub.classList.add("open");
+if (historyMenu) historyMenu.classList.add("expanded");
 
 // ── Profile Dropdown ──────────────────────────────────────────
 if (profileTrigger) {
@@ -547,7 +630,7 @@ if (topbarExpand) {
 document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   link.addEventListener('click', () => {
     if (window.innerWidth < 768) {
-      sidebar.classList.remove('open');
+      sidebar?.classList.remove('open');
       sidebarOverlay?.classList.remove('show');
       hamburger?.classList.remove('open');
     }

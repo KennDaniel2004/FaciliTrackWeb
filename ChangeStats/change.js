@@ -1,122 +1,318 @@
 /* =============================================
-   FaciliTrack – Change Stats Logic
-   ChangeStats/change.js
-
-   AUTH FLOW:
-   ┌────────────────────────────────────────────────────────────┐
-   │ Action button clicked                                       │
-   │   ↓                                                         │
-   │   Is One-Time Login done this session?                      │
-   │   NO  → Show OTL Modal (username + password)               │
-   │         → Validate against Registered_Admin (Firestore)    │
-   │         → Save adminDocId to sessionStorage                │
-   │         → Does admin have changeStatsPasscode in DB?       │
-   │           NO  → Show Passcode Registration                  │
-   │                 → Save passcode to Firestore + session     │
-   │                 → Open Detail Panel                        │
-   │           YES → Show Passcode Entry                        │
-   │                 → Validate → Open Detail Panel             │
-   │   YES → Show Passcode Entry                                 │
-   │         → Validate → Open Detail Panel                     │
-   └────────────────────────────────────────────────────────────┘
-
-   Collections:
-   ┌─────────────────────────────────────────────┐
-   │ requests          status == "Approved"       │
-   │ Registered_User   status == "active"         │
-   │ Registered_Admin  role == "admin"            │
-   │   username, password, changeStatsPasscode    │
-   └─────────────────────────────────────────────┘
+   FaciliTrack – Change Stats Logic (WITH SKELETON LOADING)
    ============================================= */
 
-import { db } from "../DatabaseConn/dbconn.js";
-import {
+import { 
+  db, 
+  auth, 
+  COLLECTIONS,
+  getCurrentAdmin,
+  formatTimestamp,
+  formatDate,
   collection,
+  doc,
+  getDocs,
+  getDoc,
+  updateDoc,
   query,
   where,
   onSnapshot,
-  getDocs,
-  getDoc,
-  doc,
-  updateDoc,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+  serverTimestamp,
+  onAuthStateChanged,
+  signOut
+} from "../DatabaseConn/dbconn.js";
 
 /* ============================================================
-   SESSION GUARD
+   SIDEBAR & TOPBAR (Same as Dashboard)
    ============================================================ */
-if (!sessionStorage.getItem('ft_admin_id')) {
-  window.location.replace('../Auth/auth.login.html');
-}
-
-/* ============================================================
-   TOPBAR
-   ============================================================ */
-const fullname = sessionStorage.getItem('ft_admin_fullname') || 'Admin';
-const parts    = fullname.trim().split(' ');
-const initials = (parts[0]?.[0] || '') + (parts[parts.length - 1]?.[0] || '');
-document.getElementById('topbar-fullname').textContent = fullname;
-document.getElementById('topbar-avatar').textContent   = initials.toUpperCase();
-
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
-const hamburger      = document.getElementById('hamburger');
-const sidebar        = document.getElementById('sidebar');
+const hamburger = document.getElementById('hamburger');
+const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
-const dashLayout     = document.getElementById('dash-layout');
-let sidebarOpen      = window.innerWidth >= 768;
+const historyMenu = document.getElementById('historyMenu');
+const historySub = document.getElementById('historySub');
+const historyArrow = document.getElementById('historyArrow');
 
 function setSidebar(open) {
-  sidebarOpen = open;
   sidebar.classList.toggle('open', open);
-  sidebarOverlay.classList.toggle('show', open && window.innerWidth < 768);
-  hamburger.classList.toggle('open', open);
-  if (window.innerWidth >= 768) {
-    sidebar.classList.toggle('force-closed', !open);
-    dashLayout.classList.toggle('sidebar-closed', !open);
-  }
+  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open);
+  if (hamburger) hamburger.classList.toggle('open', open);
 }
-hamburger.addEventListener('click', () => setSidebar(!sidebarOpen));
-sidebarOverlay.addEventListener('click', () => setSidebar(false));
-window.addEventListener('resize', () => {
-  if (window.innerWidth >= 768) sidebarOverlay.classList.remove('show');
-});
-setSidebar(sidebarOpen);
+
+if (hamburger) {
+  hamburger.addEventListener('click', () => setSidebar(!sidebar.classList.contains('open')));
+}
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener('click', () => setSidebar(false));
+}
+
+// History submenu toggle
+if (historyArrow) {
+  historyArrow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    historyMenu.classList.toggle('expanded');
+    historySub.classList.toggle('open');
+  });
+}
+if (historyMenu) {
+  historyMenu.addEventListener('click', (e) => {
+    if (e.target === historyArrow || (historyArrow && historyArrow.contains(e.target))) return;
+    historyMenu.classList.toggle('expanded');
+    historySub.classList.toggle('open');
+  });
+}
+if (historySub) historySub.classList.add('open');
+if (historyMenu) historyMenu.classList.add('expanded');
+
+/* ============================================================
+   TOPBAR PROFILE
+   ============================================================ */
+const adminFullName = document.getElementById('topbar-fullname');
+const adminAvatar = document.getElementById('topbar-avatar');
+const profileTrigger = document.getElementById('profile-trigger');
+const dropdownMenu = document.getElementById('dropdown-menu');
+
+const adminData = getCurrentAdmin();
+if (adminData) {
+  const displayName = adminData.fullName || adminData.username || 'Admin';
+  if (adminFullName) adminFullName.textContent = displayName;
+  const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  if (adminAvatar) adminAvatar.textContent = initials;
+}
+
+if (profileTrigger) {
+  profileTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownMenu?.classList.toggle('show');
+  });
+  document.addEventListener('click', () => {
+    dropdownMenu?.classList.remove('show');
+  });
+}
 
 /* ============================================================
    LOGOUT
    ============================================================ */
-const logoutModal    = document.getElementById('logout-modal');
-const profileTrigger = document.getElementById('profile-trigger');
-const dropdownMenu   = document.getElementById('dropdown-menu');
+const logoutModal = document.getElementById('logout-modal');
+const modalCancel = document.getElementById('modal-cancel');
+const modalConfirm = document.getElementById('modal-confirm');
+const modalOverlay = document.getElementById('modal-overlay');
 
-profileTrigger.addEventListener('click', e => {
-  e.stopPropagation();
-  dropdownMenu.classList.toggle('show');
+document.getElementById('logout-btn')?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.remove('hidden');
 });
-document.addEventListener('click', e => {
-  if (!profileTrigger.contains(e.target)) dropdownMenu.classList.remove('show');
+modalCancel?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.add('hidden');
 });
-document.getElementById('logout-btn').addEventListener('click', e => {
-  e.stopPropagation();
-  dropdownMenu.classList.remove('show');
-  logoutModal.classList.remove('hidden');
+modalOverlay?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.add('hidden');
 });
-document.getElementById('modal-cancel').addEventListener('click',  () => logoutModal.classList.add('hidden'));
-document.getElementById('modal-overlay').addEventListener('click', () => logoutModal.classList.add('hidden'));
-document.getElementById('modal-confirm').addEventListener('click', () => {
+modalConfirm?.addEventListener('click', async () => {
+  await signOut(auth);
   sessionStorage.clear();
-  window.location.replace('../Auth/auth.login.html');
+  window.location.href = '../Auth/auth.login.html';
 });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    logoutModal.classList.add('hidden');
-    closeAllAuth();
-    closeDetail();
-    closeConfirm();
+
+/* ============================================================
+   FULLSCREEN TOGGLE
+   ============================================================ */
+const topbarExpand = document.getElementById('topbar-expand');
+if (topbarExpand) {
+  topbarExpand.addEventListener('click', async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  });
+}
+
+/* ============================================================
+   EYE TOGGLE HELPER
+   ============================================================ */
+function setupEyeToggle(eyeBtn, inputEl) {
+  if (!eyeBtn || !inputEl) return;
+  let isVisible = false;
+  eyeBtn.addEventListener('click', () => {
+    isVisible = !isVisible;
+    inputEl.type = isVisible ? 'text' : 'password';
+    eyeBtn.innerHTML = isVisible ? `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    ` : `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    `;
+  });
+}
+
+setupEyeToggle(document.getElementById('otl-eye'), document.getElementById('otl-password'));
+setupEyeToggle(document.getElementById('pcreg-eye1'), document.getElementById('pcreg-pass'));
+setupEyeToggle(document.getElementById('pcreg-eye2'), document.getElementById('pcreg-confirm'));
+setupEyeToggle(document.getElementById('pcentry-eye'), document.getElementById('pcentry-pass'));
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let allRequests = [];
+let searchTerm = '';
+let activeDocId = null;
+let activeData = null;
+let pendingDocId = null;
+let isLoading = true;
+let isActionInProgress = false;
+
+let otlDone = sessionStorage.getItem('ft_cs_otl_done') === 'true';
+let csAdminDocId = sessionStorage.getItem('ft_cs_admin_docid') || null;
+let csPasscode = sessionStorage.getItem('ft_cs_passcode') || null;
+
+/* ============================================================
+   SKELETON LOADING FUNCTIONS
+   ============================================================ */
+
+function showSkeletonTable() {
+  const tbody = document.getElementById('cs-tbody');
+  const emptyEl = document.getElementById('cs-empty');
+  if (emptyEl) emptyEl.classList.add('hidden');
+  
+  if (tbody) {
+    tbody.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const tr = document.createElement('tr');
+      tr.className = 'skeleton-row';
+      tr.innerHTML = `
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-short"></div></td>
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-short"></div></td>
+        <td><div class="skeleton skeleton-cell-short" style="width: 40px;"></div></td>
+        <td>
+          <div class="skeleton-actions">
+            <div class="skeleton-icon"></div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
   }
-});
+}
+
+function removeSkeletonTable() {
+  const skeletonRows = document.querySelectorAll('.skeleton-row');
+  skeletonRows.forEach(row => row.remove());
+}
+
+function showSkeletonDetail() {
+  const detailInfo = document.getElementById('detail-info');
+  if (detailInfo) {
+    detailInfo.innerHTML = `
+      <div class="skeleton-modal-details">
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value-full"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+      </div>
+    `;
+  }
+  
+  const reasonInput = document.getElementById('reschedule-reason');
+  if (reasonInput) {
+    reasonInput.placeholder = 'Loading...';
+    reasonInput.disabled = true;
+  }
+  
+  const btnReschedule = document.getElementById('btn-reschedule');
+  if (btnReschedule) {
+    btnReschedule.disabled = true;
+    btnReschedule.textContent = 'Loading...';
+  }
+}
+
+function hideSkeletonDetail(data) {
+  const detailInfo = document.getElementById('detail-info');
+  if (detailInfo && data) {
+    // Populate with actual data - will be done in openDetail
+  }
+  
+  const reasonInput = document.getElementById('reschedule-reason');
+  if (reasonInput) {
+    reasonInput.placeholder = 'Enter reason for rescheduling…';
+    reasonInput.disabled = false;
+    reasonInput.value = '';
+  }
+  
+  const btnReschedule = document.getElementById('btn-reschedule');
+  if (btnReschedule) {
+    btnReschedule.disabled = false;
+    btnReschedule.textContent = 'Reschedule';
+  }
+}
+
+function showButtonLoading(button, text) {
+  if (!button) return;
+  button.disabled = true;
+  button.style.opacity = '0.7';
+  button.innerHTML = '<span class="skeleton-spinner" style="width: 20px; height: 20px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> ' + text;
+}
+
+function restoreButton(button, originalText) {
+  if (!button) return;
+  button.disabled = false;
+  button.style.opacity = '1';
+  button.textContent = originalText;
+}
+
+function showPageLoading() {
+  const overlay = document.createElement('div');
+  overlay.id = 'page-loading-overlay';
+  overlay.innerHTML = '<div class="skeleton-spinner" style="width: 50px; height: 50px;"></div>';
+  document.body.appendChild(overlay);
+}
+
+function hidePageLoading() {
+  const overlay = document.getElementById('page-loading-overlay');
+  if (overlay) overlay.remove();
+}
+
+function showToastMessage(message, type = 'success') {
+  const existingToast = document.querySelector('.cs-toast');
+  if (existingToast) existingToast.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = `cs-toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
 
 /* ============================================================
    USER CACHE
@@ -125,19 +321,16 @@ const userCache = new Map();
 
 async function loadUserCache() {
   try {
-    const snap = await getDocs(
-      query(collection(db, 'Registered_User'), where('status', '==', 'active'))
-    );
+    const snap = await getDocs(query(collection(db, 'Registered_User'), where('status', '==', 'active')));
     snap.forEach(d => {
       const data = d.data();
-      const uid  = data.UserID || d.id;
+      const uid = data.UserID || d.id;
       userCache.set(uid, {
-        firstName:  data.First_Name  || '',
+        firstName: data.First_Name || '',
         middleName: data.Middle_Name || '',
-        lastName:   data.Last_Name   || '',
-        fullName:   data.fullName    ||
-                    `${data.First_Name || ''} ${data.Middle_Name || ''} ${data.Last_Name || ''}`.trim(),
-        position:   data.Position    || '—',
+        lastName: data.Last_Name || '',
+        fullName: data.fullName || `${data.First_Name || ''} ${data.Middle_Name || ''} ${data.Last_Name || ''}`.trim(),
+        position: data.Position || '—',
       });
     });
     console.log(`✅ User cache loaded — ${userCache.size} active users`);
@@ -172,48 +365,13 @@ function isFinished(dateStr, endTimeStr) {
 }
 
 /* ============================================================
-   STATE
-   ============================================================ */
-let allRequests = [];
-let searchTerm  = '';
-let activeDocId = null;
-let activeData  = null;
-
-// Auth state persists for the session
-let otlDone       = sessionStorage.getItem('ft_cs_otl_done') === 'true';
-let csAdminDocId  = sessionStorage.getItem('ft_cs_admin_docid') || null;
-let csPasscode    = sessionStorage.getItem('ft_cs_passcode')    || null; // cached in session
-let pendingDocId  = null;  // request waiting to open after auth
-
-/* ============================================================
-   SEARCH
-   ============================================================ */
-document.getElementById('cs-search').addEventListener('input', function () {
-  searchTerm = this.value.toLowerCase().trim();
-  renderTable(filterRequests());
-});
-
-function filterRequests() {
-  if (!searchTerm) return allRequests;
-  return allRequests.filter(r =>
-    (r.idNumber  || '').toLowerCase().includes(searchTerm) ||
-    (r._fullName || '').toLowerCase().includes(searchTerm) ||
-    (r._position || '').toLowerCase().includes(searchTerm) ||
-    (r.event     || '').toLowerCase().includes(searchTerm) ||
-    (r.venue     || '').toLowerCase().includes(searchTerm)
-  );
-}
-
-/* ============================================================
-   FIRESTORE — live listener
+   FIRESTORE LISTENER
    ============================================================ */
 async function init() {
+  showSkeletonTable();
   await loadUserCache();
 
-  const approvedQuery = query(
-    collection(db, 'requests'),
-    where('status', '==', 'Approved')
-  );
+  const approvedQuery = query(collection(db, 'requests'), where('status', '==', 'Approved'));
 
   onSnapshot(approvedQuery, (snapshot) => {
     allRequests = [];
@@ -221,21 +379,25 @@ async function init() {
       const data = { _docId: docSnap.id, ...docSnap.data() };
       if (isFinished(data.date, data.endTime)) return;
 
-      const uid  = data.idNumber || data.userId || '';
+      const uid = data.idNumber || data.userId || '';
       const user = userCache.get(uid);
-      data._fullName   = user?.fullName  || data.fullname || '—';
-      data._position   = user?.position  || '—';
-      data._firstName  = user?.firstName  || '';
+      data._fullName = user?.fullName || data.fullname || '—';
+      data._position = user?.position || '—';
+      data._firstName = user?.firstName || '';
       data._middleName = user?.middleName || '';
-      data._lastName   = user?.lastName   || '';
+      data._lastName = user?.lastName || '';
       allRequests.push(data);
     });
 
     allRequests.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    removeSkeletonTable();
+    isLoading = false;
     renderTable(filterRequests());
   }, err => {
     console.error('Firestore listener error:', err);
-    showToast('Failed to load requests: ' + err.message, 'error');
+    removeSkeletonTable();
+    isLoading = false;
+    showToastMessage('Failed to load requests: ' + err.message, 'error');
   });
 }
 
@@ -244,42 +406,46 @@ init();
 /* ============================================================
    RENDER TABLE
    ============================================================ */
-const tbody   = document.getElementById('cs-tbody');
+const tbody = document.getElementById('cs-tbody');
 const emptyEl = document.getElementById('cs-empty');
-const table   = document.getElementById('cs-table');
+const table = document.getElementById('cs-table');
+
+function filterRequests() {
+  if (!searchTerm) return allRequests;
+  return allRequests.filter(r =>
+    (r.idNumber || '').toLowerCase().includes(searchTerm) ||
+    (r._fullName || '').toLowerCase().includes(searchTerm) ||
+    (r._position || '').toLowerCase().includes(searchTerm) ||
+    (r.event || '').toLowerCase().includes(searchTerm) ||
+    (r.venue || '').toLowerCase().includes(searchTerm)
+  );
+}
 
 function renderTable(rows) {
+  if (!tbody) return;
   tbody.innerHTML = '';
+  
   if (!rows.length) {
-    table.style.display = 'none';
-    emptyEl.classList.remove('hidden');
+    if (table) table.style.display = 'none';
+    if (emptyEl) emptyEl.classList.remove('hidden');
     return;
   }
-  table.style.display = '';
-  emptyEl.classList.add('hidden');
+  
+  if (table) table.style.display = '';
+  if (emptyEl) emptyEl.classList.add('hidden');
 
   rows.forEach(r => {
-    const idNum    = escHtml(r.idNumber   || r.userId  || '—');
-    const fname    = escHtml(r._fullName);
-    const position = escHtml(r._position);
-    const activity = escHtml(r.event      || '—');
-    const venue    = escHtml(r.venue      || '—');
-    const status   = escHtml(r.status     || 'Approved');
-
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${idNum}</td>
-      <td>${fname}</td>
-      <td>${position}</td>
-      <td>${activity}</td>
-      <td>${venue}</td>
-      <td><span class="cs-status-badge">${status}</span></td>
+      <td>${escapeHtml(r.idNumber || r.userId || '—')}</td>
+      <td>${escapeHtml(r._fullName)}</td>
+      <td>${escapeHtml(r._position)}</td>
+      <td>${escapeHtml(r.event || '—')}</td>
+      <td>${escapeHtml(r.venue || '—')}</td>
+      <td><span class="cs-status-badge">Approved</span></td>
       <td>
-        <button class="cs-action-btn" data-id="${r._docId}"
-                title="Reschedule" aria-label="Reschedule request">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-               width="20" height="20">
+        <button class="cs-action-btn" data-id="${r._docId}" title="Reschedule">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
@@ -294,282 +460,226 @@ function renderTable(rows) {
   });
 }
 
-/* ============================================================
-   AUTH ENTRY POINT — called when action button clicked
-   ============================================================ */
-function handleActionClick(docId) {
-  pendingDocId = docId;
-
-  if (!otlDone) {
-    // First time this session: show One Time Login
-    openOtlModal();
-  } else {
-    // Already logged in: just ask for passcode every time
-    openPcEntryModal();
-  }
-}
+document.getElementById('cs-search')?.addEventListener('input', function() {
+  searchTerm = this.value.toLowerCase().trim();
+  renderTable(filterRequests());
+});
 
 /* ============================================================
-   EYE TOGGLE HELPER
+   AUTH MODALS
    ============================================================ */
-const EYE_OPEN = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-       width="18" height="18">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-    <circle cx="12" cy="12" r="3"/>
-  </svg>`;
-
-const EYE_CLOSED = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-       width="18" height="18">
-    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
-    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
-    <line x1="1" y1="1" x2="23" y2="23"/>
-  </svg>`;
-
-function setupEyeToggle(eyeBtn, inputEl) {
-  eyeBtn.innerHTML = EYE_CLOSED;
-  eyeBtn.addEventListener('click', () => {
-    const isPassword = inputEl.type === 'password';
-    inputEl.type = isPassword ? 'text' : 'password';
-    eyeBtn.innerHTML = isPassword ? EYE_OPEN : EYE_CLOSED;
-  });
-}
-
-/* ============================================================
-   ONE TIME LOGIN MODAL
-   ============================================================ */
-const otlModal    = document.getElementById('otl-modal');
-const otlOverlay  = document.getElementById('otl-overlay');
+const otlModal = document.getElementById('otl-modal');
+const otlOverlay = document.getElementById('otl-overlay');
 const otlUsername = document.getElementById('otl-username');
 const otlPassword = document.getElementById('otl-password');
-const otlError    = document.getElementById('otl-error');
+const otlError = document.getElementById('otl-error');
 const otlLoginBtn = document.getElementById('otl-login-btn');
-const otlBtnText  = document.getElementById('otl-btn-text');
+const otlBtnText = document.getElementById('otl-btn-text');
 
-// Setup eye toggle
-setupEyeToggle(document.getElementById('otl-eye'), otlPassword);
+const pcregModal = document.getElementById('pcreg-modal');
+const pcregOverlay = document.getElementById('pcreg-overlay');
+const pcregPass = document.getElementById('pcreg-pass');
+const pcregConfirm = document.getElementById('pcreg-confirm');
+const pcregError = document.getElementById('pcreg-error');
+const pcregEnterBtn = document.getElementById('pcreg-enter-btn');
+const pcregBtnText = document.getElementById('pcreg-btn-text');
+
+const pcentryModal = document.getElementById('pcentry-modal');
+const pcentryOverlay = document.getElementById('pcentry-overlay');
+const pcentryPass = document.getElementById('pcentry-pass');
+const pcentryError = document.getElementById('pcentry-error');
+const pcentryEnterBtn = document.getElementById('pcentry-enter-btn');
+const pcentryBtnText = document.getElementById('pcentry-btn-text');
 
 function openOtlModal() {
-  otlUsername.value = '';
-  otlPassword.value = '';
-  otlError.classList.add('hidden');
-  otlUsername.classList.remove('input-error');
-  otlPassword.classList.remove('input-error');
-  otlModal.classList.remove('hidden');
-  setTimeout(() => otlUsername.focus(), 100);
+  if (otlUsername) otlUsername.value = '';
+  if (otlPassword) otlPassword.value = '';
+  if (otlError) otlError.classList.add('hidden');
+  if (otlModal) otlModal.classList.remove('hidden');
+  setTimeout(() => otlUsername?.focus(), 100);
 }
 
 function closeOtlModal() {
-  otlModal.classList.add('hidden');
+  if (otlModal) otlModal.classList.add('hidden');
 }
 
-otlOverlay.addEventListener('click', closeOtlModal);
+function openPcRegModal() {
+  if (pcregPass) pcregPass.value = '';
+  if (pcregConfirm) pcregConfirm.value = '';
+  if (pcregError) pcregError.classList.add('hidden');
+  if (pcregModal) pcregModal.classList.remove('hidden');
+  setTimeout(() => pcregPass?.focus(), 100);
+}
 
-otlLoginBtn.addEventListener('click', performOtlLogin);
-otlPassword.addEventListener('keydown', e => { if (e.key === 'Enter') performOtlLogin(); });
+function closePcRegModal() {
+  if (pcregModal) pcregModal.classList.add('hidden');
+}
 
+function openPcEntryModal() {
+  if (pcentryPass) pcentryPass.value = '';
+  if (pcentryError) pcentryError.classList.add('hidden');
+  if (pcentryModal) pcentryModal.classList.remove('hidden');
+  setTimeout(() => pcentryPass?.focus(), 100);
+}
+
+function closePcEntryModal() {
+  if (pcentryModal) pcentryModal.classList.add('hidden');
+}
+
+otlOverlay?.addEventListener('click', closeOtlModal);
+pcregOverlay?.addEventListener('click', closePcRegModal);
+pcentryOverlay?.addEventListener('click', closePcEntryModal);
+
+/* ============================================================
+   ONE TIME LOGIN
+   ============================================================ */
 async function performOtlLogin() {
-  const username = otlUsername.value.trim();
-  const password = otlPassword.value.trim();
+  const username = otlUsername?.value.trim() || '';
+  const password = otlPassword?.value.trim() || '';
 
   if (!username || !password) {
-    setAuthError(otlError, 'Please enter both username and password.');
-    if (!username) otlUsername.classList.add('input-error');
-    if (!password) otlPassword.classList.add('input-error');
+    if (otlError) {
+      otlError.textContent = 'Please enter both username and password.';
+      otlError.classList.remove('hidden');
+    }
     return;
   }
 
-  otlLoginBtn.disabled = true;
-  otlBtnText.textContent = 'Verifying…';
-  otlError.classList.add('hidden');
-  otlUsername.classList.remove('input-error');
-  otlPassword.classList.remove('input-error');
+  if (otlLoginBtn) {
+    showButtonLoading(otlLoginBtn, 'Verifying...');
+  }
+  if (otlError) otlError.classList.add('hidden');
 
   try {
-    // Query Registered_Admin collection for matching credentials
     const adminQuery = query(
       collection(db, 'Registered_Admin'),
       where('username', '==', username),
       where('password', '==', password),
-      where('status',   '==', 'active')
+      where('status', '==', 'active')
     );
     const snap = await getDocs(adminQuery);
 
     if (snap.empty) {
-      setAuthError(otlError, 'Invalid username or password.');
-      otlUsername.classList.add('input-error');
-      otlPassword.classList.add('input-error');
+      if (otlError) {
+        otlError.textContent = 'Invalid username or password.';
+        otlError.classList.remove('hidden');
+      }
       return;
     }
 
-    // Valid admin found
-    const adminDoc  = snap.docs[0];
-    csAdminDocId    = adminDoc.id;
+    const adminDoc = snap.docs[0];
+    csAdminDocId = adminDoc.id;
     const adminData = adminDoc.data();
 
-    // Mark One Time Login as done for this session
     sessionStorage.setItem('ft_cs_otl_done', 'true');
     sessionStorage.setItem('ft_cs_admin_docid', csAdminDocId);
     otlDone = true;
 
     closeOtlModal();
 
-    // Check if passcode already registered
     if (adminData.changeStatsPasscode) {
-      // Passcode exists — cache it in session and show entry
       csPasscode = adminData.changeStatsPasscode;
       sessionStorage.setItem('ft_cs_passcode', csPasscode);
       openPcEntryModal();
     } else {
-      // No passcode — show registration
       openPcRegModal();
     }
 
   } catch (err) {
     console.error('OTL Login error:', err);
-    setAuthError(otlError, 'Login failed. Please try again.');
+    if (otlError) {
+      otlError.textContent = 'Login failed. Please try again.';
+      otlError.classList.remove('hidden');
+    }
   } finally {
-    otlLoginBtn.disabled = false;
-    otlBtnText.textContent = 'Login';
+    if (otlLoginBtn) restoreButton(otlLoginBtn, 'Login');
   }
 }
 
+otlLoginBtn?.addEventListener('click', performOtlLogin);
+otlPassword?.addEventListener('keydown', e => { if (e.key === 'Enter') performOtlLogin(); });
+
 /* ============================================================
-   PASSCODE REGISTRATION MODAL
+   PASSCODE REGISTRATION
    ============================================================ */
-const pcregModal    = document.getElementById('pcreg-modal');
-const pcregOverlay  = document.getElementById('pcreg-overlay');
-const pcregPass     = document.getElementById('pcreg-pass');
-const pcregConfirm  = document.getElementById('pcreg-confirm');
-const pcregError    = document.getElementById('pcreg-error');
-const pcregEnterBtn = document.getElementById('pcreg-enter-btn');
-const pcregBtnText  = document.getElementById('pcreg-btn-text');
-
-setupEyeToggle(document.getElementById('pcreg-eye1'), pcregPass);
-setupEyeToggle(document.getElementById('pcreg-eye2'), pcregConfirm);
-
-function openPcRegModal() {
-  pcregPass.value    = '';
-  pcregConfirm.value = '';
-  pcregError.classList.add('hidden');
-  pcregPass.classList.remove('input-error');
-  pcregConfirm.classList.remove('input-error');
-  pcregModal.classList.remove('hidden');
-  setTimeout(() => pcregPass.focus(), 100);
-}
-
-function closePcRegModal() {
-  pcregModal.classList.add('hidden');
-}
-
-pcregOverlay.addEventListener('click', closePcRegModal);
-
-pcregEnterBtn.addEventListener('click', performPcRegistration);
-pcregConfirm.addEventListener('keydown', e => { if (e.key === 'Enter') performPcRegistration(); });
-
 async function performPcRegistration() {
-  const pass    = pcregPass.value.trim();
-  const confirm = pcregConfirm.value.trim();
+  const pass = pcregPass?.value.trim() || '';
+  const confirm = pcregConfirm?.value.trim() || '';
 
   if (!pass || !confirm) {
-    setAuthError(pcregError, 'Please fill in both passcode fields.');
-    if (!pass)    pcregPass.classList.add('input-error');
-    if (!confirm) pcregConfirm.classList.add('input-error');
+    if (pcregError) {
+      pcregError.textContent = 'Please fill in both passcode fields.';
+      pcregError.classList.remove('hidden');
+    }
     return;
   }
 
   if (pass.length < 4) {
-    setAuthError(pcregError, 'Passcode must be at least 4 characters.');
-    pcregPass.classList.add('input-error');
+    if (pcregError) {
+      pcregError.textContent = 'Passcode must be at least 4 characters.';
+      pcregError.classList.remove('hidden');
+    }
     return;
   }
 
   if (pass !== confirm) {
-    setAuthError(pcregError, 'Passcodes do not match. Try again.');
-    pcregConfirm.classList.add('input-error');
-    pcregConfirm.value = '';
-    setTimeout(() => pcregConfirm.focus(), 50);
+    if (pcregError) {
+      pcregError.textContent = 'Passcodes do not match.';
+      pcregError.classList.remove('hidden');
+    }
+    if (pcregConfirm) pcregConfirm.value = '';
+    setTimeout(() => pcregConfirm?.focus(), 50);
     return;
   }
 
-  pcregEnterBtn.disabled = true;
-  pcregBtnText.textContent = 'Saving…';
-  pcregError.classList.add('hidden');
+  if (pcregEnterBtn) showButtonLoading(pcregEnterBtn, 'Saving...');
+  if (pcregError) pcregError.classList.add('hidden');
 
   try {
-    // Save passcode to Firestore admin document
     await updateDoc(doc(db, 'Registered_Admin', csAdminDocId), {
       changeStatsPasscode: pass,
       passcodeRegisteredAt: serverTimestamp()
     });
 
-    // Cache in session
     csPasscode = pass;
     sessionStorage.setItem('ft_cs_passcode', csPasscode);
 
     closePcRegModal();
-    showToast('Passcode registered successfully.', 'success');
-
-    // Proceed to open the detail panel
+    showToastMessage('Passcode registered successfully.', 'success');
     openDetail(pendingDocId);
 
   } catch (err) {
     console.error('Passcode registration error:', err);
-    setAuthError(pcregError, 'Failed to save passcode. Try again.');
+    if (pcregError) {
+      pcregError.textContent = 'Failed to save passcode. Try again.';
+      pcregError.classList.remove('hidden');
+    }
   } finally {
-    pcregEnterBtn.disabled = false;
-    pcregBtnText.textContent = 'Enter';
+    if (pcregEnterBtn) restoreButton(pcregEnterBtn, 'Register');
   }
 }
 
+pcregEnterBtn?.addEventListener('click', performPcRegistration);
+pcregConfirm?.addEventListener('keydown', e => { if (e.key === 'Enter') performPcRegistration(); });
+
 /* ============================================================
-   PASSCODE ENTRY MODAL (every time feature is accessed)
+   PASSCODE ENTRY
    ============================================================ */
-const pcentryModal    = document.getElementById('pcentry-modal');
-const pcentryOverlay  = document.getElementById('pcentry-overlay');
-const pcentryPass     = document.getElementById('pcentry-pass');
-const pcentryError    = document.getElementById('pcentry-error');
-const pcentryEnterBtn = document.getElementById('pcentry-enter-btn');
-const pcentryBtnText  = document.getElementById('pcentry-btn-text');
-
-setupEyeToggle(document.getElementById('pcentry-eye'), pcentryPass);
-
-function openPcEntryModal() {
-  pcentryPass.value = '';
-  pcentryError.classList.add('hidden');
-  pcentryPass.classList.remove('input-error');
-  pcentryModal.classList.remove('hidden');
-  setTimeout(() => pcentryPass.focus(), 100);
-}
-
-function closePcEntryModal() {
-  pcentryModal.classList.add('hidden');
-}
-
-pcentryOverlay.addEventListener('click', closePcEntryModal);
-
-pcentryEnterBtn.addEventListener('click', performPcEntry);
-pcentryPass.addEventListener('keydown', e => { if (e.key === 'Enter') performPcEntry(); });
-
 async function performPcEntry() {
-  const entered = pcentryPass.value.trim();
+  const entered = pcentryPass?.value.trim() || '';
 
   if (!entered) {
-    setAuthError(pcentryError, 'Please enter your passcode.');
-    pcentryPass.classList.add('input-error');
+    if (pcentryError) {
+      pcentryError.textContent = 'Please enter your passcode.';
+      pcentryError.classList.remove('hidden');
+    }
     return;
   }
 
-  pcentryEnterBtn.disabled = true;
-  pcentryBtnText.textContent = 'Checking…';
-  pcentryError.classList.add('hidden');
-  pcentryPass.classList.remove('input-error');
+  if (pcentryEnterBtn) showButtonLoading(pcentryEnterBtn, 'Verifying...');
+  if (pcentryError) pcentryError.classList.add('hidden');
 
   try {
-    // Use cached passcode first; if not cached, fetch from Firestore
     if (!csPasscode && csAdminDocId) {
       const adminSnap = await getDoc(doc(db, 'Registered_Admin', csAdminDocId));
       if (adminSnap.exists()) {
@@ -582,137 +692,173 @@ async function performPcEntry() {
       closePcEntryModal();
       openDetail(pendingDocId);
     } else {
-      setAuthError(pcentryError, 'Incorrect passcode. Try again.');
-      pcentryPass.classList.add('input-error');
-      pcentryPass.value = '';
-      setTimeout(() => pcentryPass.focus(), 50);
+      if (pcentryError) {
+        pcentryError.textContent = 'Incorrect passcode. Try again.';
+        pcentryError.classList.remove('hidden');
+      }
+      if (pcentryPass) pcentryPass.value = '';
+      setTimeout(() => pcentryPass?.focus(), 50);
     }
-
   } catch (err) {
     console.error('Passcode entry error:', err);
-    setAuthError(pcentryError, 'Verification failed. Try again.');
+    if (pcentryError) {
+      pcentryError.textContent = 'Verification failed. Try again.';
+      pcentryError.classList.remove('hidden');
+    }
   } finally {
-    pcentryEnterBtn.disabled = false;
-    pcentryBtnText.textContent = 'Enter';
+    if (pcentryEnterBtn) restoreButton(pcentryEnterBtn, 'Verify');
   }
 }
 
-/* ============================================================
-   CLOSE ALL AUTH MODALS
-   ============================================================ */
-function closeAllAuth() {
-  otlModal.classList.add('hidden');
-  pcregModal.classList.add('hidden');
-  pcentryModal.classList.add('hidden');
-}
+pcentryEnterBtn?.addEventListener('click', performPcEntry);
+pcentryPass?.addEventListener('keydown', e => { if (e.key === 'Enter') performPcEntry(); });
 
 /* ============================================================
-   AUTH ERROR HELPER
+   HANDLE ACTION CLICK
    ============================================================ */
-function setAuthError(el, msg) {
-  el.textContent = msg;
-  el.classList.remove('hidden');
+function handleActionClick(docId) {
+  pendingDocId = docId;
+
+  if (!otlDone) {
+    openOtlModal();
+  } else {
+    openPcEntryModal();
+  }
 }
 
 /* ============================================================
    DETAIL PANEL
    ============================================================ */
 const detailOverlay = document.getElementById('detail-overlay');
-const detailPanel   = document.getElementById('detail-panel');
-const detailInfo    = document.getElementById('detail-info');
-const reasonInput   = document.getElementById('reschedule-reason');
+const detailPanel = document.getElementById('detail-panel');
+const detailInfo = document.getElementById('detail-info');
+const reasonInput = document.getElementById('reschedule-reason');
 const btnReschedule = document.getElementById('btn-reschedule');
 const detailBackBtn = document.getElementById('detail-back-btn');
 
 function openDetail(docId) {
+  // Show skeleton while loading
+  showSkeletonDetail();
+  
+  // Open panel
+  if (detailOverlay) detailOverlay.classList.remove('hidden');
+  if (detailPanel) detailPanel.classList.remove('hidden');
+  
+  // Find the request data
   const r = allRequests.find(req => req._docId === docId);
-  if (!r) return;
+  if (!r) {
+    // If not found yet, wait a bit
+    setTimeout(() => {
+      const retryReq = allRequests.find(req => req._docId === docId);
+      if (retryReq) {
+        populateDetailInfo(retryReq);
+      } else {
+        if (detailInfo) detailInfo.innerHTML = '<div class="detail-info-row"><span class="detail-info-value">Request data not found</span></div>';
+      }
+    }, 500);
+    return;
+  }
+  
+  populateDetailInfo(r);
+}
 
-  activeDocId = docId;
-  activeData  = r;
-  reasonInput.value = '';
+function populateDetailInfo(r) {
+  activeDocId = r._docId;
+  activeData = r;
+  if (reasonInput) reasonInput.value = '';
 
-  const uid  = r.idNumber || r.userId || '';
+  const uid = r.idNumber || r.userId || '';
   const user = userCache.get(uid);
 
-  const displayId  = escHtml(uid || '—');
-  const firstName  = escHtml(user?.firstName  || r._firstName  || '—');
-  const middleName = escHtml(user?.middleName || r._middleName || '—');
-  const lastName   = escHtml(user?.lastName   || r._lastName   || '—');
-  const fullName   = escHtml(user?.fullName   || r._fullName   || '—');
-  const position   = escHtml(user?.position   || r._position   || '—');
-
-  detailInfo.innerHTML =
-    infoRow('Request ID',      r.requestId        || r._docId)
-  + infoRow('User ID',         displayId)
-  + infoRow('First Name',      firstName)
-  + infoRow('Middle Name',     middleName)
-  + infoRow('Last Name',       lastName)
-  + infoRow('Full Name',       fullName)
-  + infoRow('Position',        position)
-  + infoRow('Event',           r.event            || '—')
-  + infoRow('Description',     r.eventDescription || '—')
-  + infoRow('Venue',           r.venue            || '—')
-  + infoRow('Date',            r.date             || '—')
-  + infoRow('Start Time',      r.startTime        || '—')
-  + infoRow('End Time',        r.endTime          || '—')
-  + infoRow('Items/Equipment', r.item             || '—')
-  + infoRow('Status',          r.status           || '—');
-
-  detailOverlay.classList.remove('hidden');
-  detailPanel.classList.remove('hidden');
-  reasonInput.focus();
+  if (detailInfo) {
+    detailInfo.innerHTML = `
+      ${infoRow('Request ID', r.requestId || r._docId)}
+      ${infoRow('User ID', uid || '—')}
+      ${infoRow('First Name', user?.firstName || r._firstName || '—')}
+      ${infoRow('Middle Name', user?.middleName || r._middleName || '—')}
+      ${infoRow('Last Name', user?.lastName || r._lastName || '—')}
+      ${infoRow('Full Name', user?.fullName || r._fullName || '—')}
+      ${infoRow('Position', user?.position || r._position || '—')}
+      ${infoRow('Event', r.event || '—')}
+      ${infoRow('Description', r.eventDescription || '—')}
+      ${infoRow('Venue', r.venue || '—')}
+      ${infoRow('Date', formatDate(r.date))}
+      ${infoRow('Start Time', r.startTime || '—')}
+      ${infoRow('End Time', r.endTime || '—')}
+      ${infoRow('Items/Equipment', r.item || '—')}
+      ${infoRow('Status', r.status || '—')}
+    `;
+  }
+  
+  // Restore reason input and button
+  if (reasonInput) {
+    reasonInput.disabled = false;
+    reasonInput.placeholder = 'Enter reason for rescheduling…';
+    reasonInput.value = '';
+  }
+  
+  if (btnReschedule) {
+    btnReschedule.disabled = false;
+    btnReschedule.textContent = 'Reschedule';
+  }
+  
+  setTimeout(() => reasonInput?.focus(), 100);
 }
 
 function infoRow(label, value) {
   return `
     <div class="detail-info-row">
-      <span class="detail-info-label">${escHtml(label)}</span>
-      <span class="detail-info-value">${escHtml(String(value ?? '—'))}</span>
-    </div>`;
+      <span class="detail-info-label">${escapeHtml(label)}</span>
+      <span class="detail-info-value">${escapeHtml(String(value ?? '—'))}</span>
+    </div>
+  `;
 }
 
 function closeDetail() {
-  detailOverlay.classList.add('hidden');
-  detailPanel.classList.add('hidden');
+  if (detailOverlay) detailOverlay.classList.add('hidden');
+  if (detailPanel) detailPanel.classList.add('hidden');
   activeDocId = null;
-  activeData  = null;
+  activeData = null;
 }
 
-// Back button closes the detail panel
-detailBackBtn.addEventListener('click', closeDetail);
-detailOverlay.addEventListener('click', closeDetail);
-
-/* Validate reason → open confirmation */
-btnReschedule.addEventListener('click', () => {
-  const reason = reasonInput.value.trim();
-  if (!reason) {
-    reasonInput.style.borderColor = '#dc2626';
-    reasonInput.placeholder = '⚠ Please enter a reason first.';
-    reasonInput.focus();
-    setTimeout(() => {
-      reasonInput.style.borderColor = '';
-      reasonInput.placeholder = 'Enter reason for rescheduling…';
-    }, 2500);
-    return;
-  }
-  openConfirm();
-});
+detailBackBtn?.addEventListener('click', closeDetail);
+detailOverlay?.addEventListener('click', closeDetail);
 
 /* ============================================================
-   CONFIRMATION MODAL
+   RESCHEDULE CONFIRMATION
    ============================================================ */
-const confirmModal   = document.getElementById('confirm-modal');
-const confirmOverlay = document.getElementById('confirm-overlay');
-const confirmOk      = document.getElementById('confirm-ok');
-const confirmCancel  = document.getElementById('confirm-cancel');
+const confirmModalElem = document.getElementById('confirm-modal');
+const confirmOverlayElem = document.getElementById('confirm-overlay');
+const confirmOkBtn = document.getElementById('confirm-ok');
+const confirmCancelBtn = document.getElementById('confirm-cancel');
 
-function openConfirm()  { confirmModal.classList.remove('hidden'); }
-function closeConfirm() { confirmModal.classList.add('hidden'); }
+btnReschedule?.addEventListener('click', () => {
+  const reason = reasonInput?.value.trim() || '';
+  if (!reason) {
+    if (reasonInput) {
+      reasonInput.style.borderColor = '#dc2626';
+      reasonInput.placeholder = '⚠ Please enter a reason first.';
+      reasonInput.focus();
+      setTimeout(() => {
+        if (reasonInput) {
+          reasonInput.style.borderColor = '';
+          reasonInput.placeholder = 'Enter reason for rescheduling…';
+        }
+      }, 2500);
+    }
+    return;
+  }
+  if (confirmModalElem) confirmModalElem.classList.remove('hidden');
+});
 
-confirmCancel.addEventListener('click',  closeConfirm);
-confirmOverlay.addEventListener('click', closeConfirm);
-confirmOk.addEventListener('click', async () => {
+function closeConfirm() {
+  if (confirmModalElem) confirmModalElem.classList.add('hidden');
+}
+
+confirmCancelBtn?.addEventListener('click', closeConfirm);
+confirmOverlayElem?.addEventListener('click', closeConfirm);
+
+confirmOkBtn?.addEventListener('click', async () => {
   closeConfirm();
   await performReschedule();
 });
@@ -723,62 +869,57 @@ confirmOk.addEventListener('click', async () => {
 async function performReschedule() {
   if (!activeDocId) return;
 
-  const reason    = reasonInput.value.trim();
-  const adminId   = sessionStorage.getItem('ft_admin_id')       || '';
-  const adminName = sessionStorage.getItem('ft_admin_username')  ||
-                    sessionStorage.getItem('ft_admin_fullname')  || 'Admin';
+  const reason = reasonInput?.value.trim() || '';
+  const adminId = sessionStorage.getItem('ft_admin_id') || '';
+  const adminName = sessionStorage.getItem('ft_admin_username') || 
+                    sessionStorage.getItem('ft_admin_fullname') || 'Admin';
 
-  btnReschedule.disabled    = true;
-  btnReschedule.textContent = 'Saving…';
+  if (btnReschedule) {
+    showButtonLoading(btnReschedule, 'Saving...');
+  }
 
   try {
     await updateDoc(doc(db, 'requests', activeDocId), {
-      status:            'Rescheduled',
-      rescheduleReason:  reason,
-      rescheduledAt:     serverTimestamp(),
-      rescheduledBy:     adminId,
+      status: 'Rescheduled',
+      rescheduleReason: reason,
+      rescheduledAt: serverTimestamp(),
+      rescheduledBy: adminId,
       rescheduledByName: adminName,
     });
 
     console.log('✅ Rescheduled:', activeDocId);
     closeDetail();
-    showToast('Request successfully rescheduled.', 'success');
+    showToastMessage('Request successfully rescheduled.', 'success');
 
   } catch (err) {
     console.error('Reschedule error:', err);
-    showToast('Failed to reschedule: ' + err.message, 'error');
+    showToastMessage('Failed to reschedule: ' + err.message, 'error');
   } finally {
-    btnReschedule.disabled    = false;
-    btnReschedule.textContent = 'Reschedule';
+    if (btnReschedule) restoreButton(btnReschedule, 'Reschedule');
   }
 }
 
 /* ============================================================
-   TOAST
+   HELPERS
    ============================================================ */
-function showToast(msg, type) {
-  document.querySelectorAll('.cs-toast').forEach(t => t.remove());
-  const toast = document.createElement('div');
-  toast.className = 'cs-toast';
-  toast.textContent = msg;
-  toast.style.cssText = `
-    position:fixed; bottom:28px; left:50%;
-    transform:translateX(-50%);
-    background:${type === 'success' ? '#065f46' : '#991b1b'};
-    color:#fff; padding:12px 28px; border-radius:30px;
-    font-size:14px; font-weight:600; z-index:9999;
-    box-shadow:0 6px 24px rgba(0,0,0,.2);
-  `;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3500);
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return '&#39;';
+  });
 }
 
-/* ============================================================
-   HELPER
-   ============================================================ */
-function escHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str).replace(/[&<>"']/g, m =>
-    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[m]
-  );
-}
+// Close sidebar on mobile when clicking a link
+document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
+  link.addEventListener('click', () => {
+    if (window.innerWidth < 768) {
+      sidebar?.classList.remove('open');
+      sidebarOverlay?.classList.remove('show');
+      hamburger?.classList.remove('open');
+    }
+  });
+});
