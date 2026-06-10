@@ -3,13 +3,21 @@
    HomeDashboard/dashboard.js
    ============================================= */
 
-import { db } from "../DatabaseConn/dbconn.js";
+import { db, COLLECTIONS } from "../DatabaseConn/dbconn.js";
 import {
   collection,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  doc,
+  updateDoc,
+  orderBy,
+  limit
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+// ── Admin Notifications (new requests → toast + Web Push + mobile push) ───────
+import { initAdminNotifications, stopAdminNotifications }
+    from '../Notification/admin-notification-manager.js';
 
 /* ============================================================
    SESSION GUARD
@@ -18,6 +26,9 @@ const adminId = sessionStorage.getItem('ft_admin_id');
 if (!adminId) {
   window.location.replace('../Auth/auth.login.html');
 }
+
+// ── Start notification listener (adminId is confirmed valid here) ─────────────
+initAdminNotifications();
 
 /* ============================================================
    TOPBAR
@@ -120,14 +131,6 @@ if (scheduleParent) {
 
 setScheduleSubmenu(false);
 
-document.querySelectorAll('.nav-item').forEach(item => {
-  const href = item.getAttribute('href');
-  if (href && href !== '#' && !href.startsWith('javascript:')) {
-
-    return;
-  }
-});
-
 const legalHolidayLink = document.querySelector('.nav-child[data-panel="panel-legalholiday"]');
 if (legalHolidayLink) {
   legalHolidayLink.addEventListener('click', function(e) {
@@ -168,6 +171,10 @@ logoutBtn.addEventListener('click', e => {
 modalCancel.addEventListener('click',  () => logoutModal.classList.add('hidden'));
 modalOverlay.addEventListener('click', () => logoutModal.classList.add('hidden'));
 modalConfirm.addEventListener('click', () => {
+  stopAdminNotifications();
+  if (typeof stopNotificationListener === 'function') {
+    stopNotificationListener();
+  }
   sessionStorage.clear();
   window.location.replace('../Auth/auth.login.html');
 });
@@ -272,7 +279,7 @@ setInterval(updateClock, 1000);
    FIRESTORE — Filter expired events
    ============================================================ */
 const requestsQuery = query(
-  collection(db, 'requests'),
+  collection(db, COLLECTIONS.REQUESTS),
   where('status', 'in', ['Approved', 'approved'])
 );
 
@@ -303,7 +310,6 @@ onSnapshot(requestsQuery, (snapshot) => {
 
     if (!dateStr) return;
     
-    // SKIP EXPIRED EVENTS (dates that have already passed)
     if (eventDate && eventDate < todayDate) {
       expiredCount++;
       return;
@@ -454,7 +460,6 @@ function formatDateKey(date) {
 
 function getEventsForDateKey(dateKey) {
   const todayKey = formatDateKey(today);
-  // Only show events that are today or in the future (not expired)
   if (dateKey < todayKey) return [];
   
   return (approvedEvents[dateKey] || []).filter(ev => {
@@ -682,7 +687,6 @@ eventPopupClose.addEventListener('click',   closeEventPopup);
 eventPopupOverlay.addEventListener('click', closeEventPopup);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEventPopup(); });
 
-
 function updateRequestsBadge() {
   const badge = document.getElementById('requests-badge');
   if (!badge) return;
@@ -705,12 +709,341 @@ function updateRequestsBadge() {
 
 updateRequestsBadge();
 
+window.addEventListener('ft:newRequest', (e) => {
+  updateRequestsBadge();
+  const requestId = e.detail?.requestId;
+  showToast(`New request received${requestId ? `: ${requestId}` : ''}`, 'info');
+});
+
+window.addEventListener('ft:notificationClicked', (e) => {
+  window.location.href = '../Requests/request.html';
+});
+
+/* ============================================================
+   NOTIFICATION MANAGER - FACEBOOK STYLE
+   Shows event requests (Pending, Approved, Rejected status)
+   ============================================================ */
+
+let notificationsUnsubscribe = null;
+let currentNotifications = [];
+let unreadCount = 0;
+let isDropdownOpen = false;
+
+// DOM Elements for notifications
+const notificationBell = document.getElementById('notification-bell');
+const notificationDropdown = document.getElementById('notification-dropdown');
+const notificationList = document.getElementById('notification-list');
+const notificationDot = document.getElementById('notification-dot');
+const notificationBadge = document.getElementById('notification-badge');
+
+// ── Initialize Notification Listener for Event Requests ────────────────────────
+function initNotificationListener() {
+  const adminId = sessionStorage.getItem('ft_admin_id');
+  if (!adminId) {
+    console.warn('[Notif] No admin ID found');
+    return;
+  }
+
+  // Listen only to pending request documents so the notification dropdown
+  // shows only pending requests.
+  const q = query(
+    collection(db, COLLECTIONS.REQUESTS),
+    where('status', '==', 'Pending')
+  );
+
+  if (notificationList) {
+    notificationList.innerHTML = '';
+  }
+
+  notificationsUnsubscribe = onSnapshot(q,
+    (snapshot) => {
+      const notifications = [];
+      let pendingCount = 0;
+
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const createdAt = data.createdAt?.toDate?.() ||
+          (typeof data.timestamp === 'number' ? new Date(data.timestamp) : new Date());
+        const status = (data.status || 'Pending').toLowerCase();
+
+        if (status === 'pending') pendingCount++;
+
+        notifications.push({
+          id: docSnap.id,
+          ...data,
+          createdAt
+        });
+      });
+
+      currentNotifications = notifications;
+      updateNotificationUI(pendingCount);
+      renderNotificationList();
+
+      if (pendingCount > unreadCount) {
+        const newCount = pendingCount - unreadCount;
+        showToast(`${newCount} new pending request${newCount !== 1 ? 's' : ''}`, 'info');
+      }
+
+      unreadCount = pendingCount;
+    },
+    (error) => {
+      console.error('[Notif] Listener error:', error);
+    }
+  );
+}
+
+// ── Update UI Elements ──────────────────────────────────────
+function updateNotificationUI(unread) {
+  if (unread > 0) {
+    notificationDot.style.display = 'block';
+    notificationBadge.textContent = unread > 99 ? '99+' : unread;
+    notificationBadge.style.display = 'flex';
+  } else {
+    notificationDot.style.display = 'none';
+    notificationBadge.style.display = 'none';
+  }
+}
+
+function clearNotificationIndicator() {
+  notificationDot.style.display = 'none';
+  notificationBadge.style.display = 'none';
+}
+
+// ── Get Status Badge HTML ───────────────────────────────────
+function getStatusBadge(status) {
+  const statusLower = (status || '').toLowerCase();
+  if (statusLower === 'approved') {
+    return '<span class="notif-status-badge approved">✓ Approved</span>';
+  } else if (statusLower === 'rejected') {
+    return '<span class="notif-status-badge rejected">✗ Rejected</span>';
+  } else if (statusLower === 'pending') {
+    return '<span class="notif-status-badge pending">⏳ Pending</span>';
+  }
+  return '';
+}
+
+// ── Render Notification List ────────────────────────────────
+function renderNotificationList() {
+  if (!notificationList) return;
+  
+  const displayNotifs = currentNotifications.slice(0, 20);
+  
+  if (displayNotifs.length === 0) {
+    notificationList.innerHTML = `
+      <div class="notification-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        <p>No pending requests yet</p>
+        <p style="font-size: 12px; margin-top: 8px;">Pending facility requests will appear here.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  notificationList.innerHTML = displayNotifs.map(notif => {
+    const status = notif.status || 'Pending';
+    const eventName = notif.event || notif.title || notif.eventTitle || 'Facility Request';
+    const requesterName = notif.fullname || notif.requestedBy || notif.requester || 'Unknown';
+    const idNumber = notif.idNumber || notif.userId || '';
+    const itemText = notif.item || notif.items || '';
+    const venue = notif.venue || notif.location || '';
+    const dateText = notif.date || '';
+    const timeText = notif.startTime && notif.endTime ? `${notif.startTime} - ${notif.endTime}` : notif.startTime || notif.endTime || notif.time || '';
+    const requestId = notif.requestId || '';
+    const description = notif.eventDescription || notif.description || notif.details || '';
+    const rejectedReason = notif.rejectedReason || '';
+
+    const details = [];
+    if (idNumber) details.push(`ID: ${escapeHtml(idNumber)}`);
+    if (venue) details.push(`Venue: ${escapeHtml(venue)}`);
+    if (dateText) details.push(`Date: ${escapeHtml(dateText)}`);
+    if (timeText) details.push(`Time: ${escapeHtml(timeText)}`);
+    if (itemText) details.push(`Items: ${escapeHtml(itemText)}`);
+    if (requestId) details.push(`Request ID: ${escapeHtml(requestId)}`);
+    if (rejectedReason) details.push(`Reason: ${escapeHtml(rejectedReason)}`);
+
+    return `
+      <div class="notification-item ${status.toLowerCase() === 'pending' ? 'unread' : ''}" data-notif-id="${notif.id}" data-request-id="${requestId}">
+        <div class="notification-icon ${getNotificationIconClass(notif)}">
+          ${getNotificationIcon(notif)}
+        </div>
+        <div class="notification-content">
+          <div class="notification-title">
+            ${escapeHtml(eventName)}
+            ${getStatusBadge(status)}
+          </div>
+          <div class="notification-message">
+            <strong>${escapeHtml(requesterName)}</strong>
+            ${idNumber ? ` • ${escapeHtml(idNumber)}` : ''}
+          </div>
+          <div class="notification-details">
+            ${details.map(line => `<div>${line}</div>`).join('')}
+            ${description ? `<div>📝 ${escapeHtml(description)}</div>` : ''}
+          </div>
+          <div class="notification-time">${formatNotificationTime(notif.createdAt)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  document.querySelectorAll('.notification-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.location.href = '../Requests/request.html';
+      closeNotificationDropdown();
+    });
+  });
+}
+
+// ── Get Notification Icon Class ───────────────────────────────────
+function getNotificationIconClass(notif) {
+  const status = notif.status || notif.type || '';
+  const statusLower = status.toLowerCase();
+  if (statusLower === 'approved') return 'approved';
+  if (statusLower === 'rejected') return 'rejected';
+  if (statusLower === 'pending') return 'pending';
+  return 'info';
+}
+
+function getNotificationIcon(notif) {
+  const status = notif.status || notif.type || '';
+  const statusLower = status.toLowerCase();
+  if (statusLower === 'approved') return '✓';
+  if (statusLower === 'rejected') return '✗';
+  if (statusLower === 'pending') return '⏳';
+  return '📋';
+}
+
+// ── Mark Notification as Read ───────────────────────────────
+async function markAsRead(notificationId) {
+  try {
+    const notifRef = doc(db, "Notification", notificationId);
+    await updateDoc(notifRef, { read: true });
+    console.log('[Notif] Marked as read:', notificationId);
+  } catch (error) {
+    console.error('[Notif] Error marking as read:', error);
+  }
+}
+
+// ── Mark All as Read ────────────────────────────────────────
+async function markAllAsRead() {
+  const unreadNotifs = currentNotifications.filter(n => !n.read);
+  if (unreadNotifs.length === 0) {
+    showToast('No unread notifications', 'info');
+    return;
+  }
+  
+  try {
+    const promises = unreadNotifs.map(notif => 
+      updateDoc(doc(db, "Notification", notif.id), { read: true })
+    );
+    await Promise.all(promises);
+    showToast(`Marked ${unreadNotifs.length} notification${unreadNotifs.length !== 1 ? 's' : ''} as read`, 'success');
+  } catch (error) {
+    console.error('[Notif] Error marking all as read:', error);
+    showToast('Error marking notifications as read', 'error');
+  }
+}
+
+// ── Format Notification Time ────────────────────────────────
+function formatNotificationTime(date) {
+  if (!date) return 'Just now';
+  
+  const now = new Date();
+  const diff = now - date;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ── Toggle Notification Dropdown ───────────────────────────
+function toggleNotificationDropdown() {
+  isDropdownOpen = !isDropdownOpen;
+  if (isDropdownOpen) {
+    notificationDropdown.classList.add('show');
+    renderNotificationList();
+    clearNotificationIndicator();
+  } else {
+    notificationDropdown.classList.remove('show');
+  }
+}
+
+function closeNotificationDropdown() {
+  isDropdownOpen = false;
+  notificationDropdown.classList.remove('show');
+}
+
+// ── Tab Switching ───────────────────────────────────────────
+// ── Click Outside Handler ───────────────────────────────────
+function setupClickOutsideHandler() {
+  document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('notification-bell-wrapper');
+    if (wrapper && !wrapper.contains(e.target) && isDropdownOpen) {
+      closeNotificationDropdown();
+    }
+  });
+}
+
+// ── Stop Notification Listener ──────────────────────────────
+function stopNotificationListener() {
+  if (notificationsUnsubscribe) {
+    notificationsUnsubscribe();
+    notificationsUnsubscribe = null;
+  }
+}
+
+// ── Initialize Notification System ──────────────────────────
+function initNotificationSystem() {
+  if (!notificationBell) {
+    console.warn('[Notif] Notification bell not found');
+    return;
+  }
+  
+  // Initialize Firestore listener
+  initNotificationListener();
+  
+  // Setup UI event listeners
+  notificationBell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleNotificationDropdown();
+  });
+  
+  setupClickOutsideHandler();
+  
+  console.log('[Notif] Notification system initialized');
+}
+
+// Make stopNotificationListener available globally
+window.stopNotificationListener = stopNotificationListener;
+
+// Initialize notification system when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initNotificationSystem);
+} else {
+  initNotificationSystem();
+}
+
+/* ============================================================
+   HELPER FUNCTIONS
+   ============================================================ */
 function escHtml(str) {
   if (!str) return '';
   return String(str).replace(/[&<>"']/g, m => ({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   })[m]);
 }
+
+const escapeHtml = escHtml;
 
 /* Initial render */
 renderCalendar();

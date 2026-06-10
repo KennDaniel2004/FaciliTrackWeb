@@ -94,7 +94,7 @@ import {
       }
     } catch (err) {
       console.error('Registration guard failed:', err);
-      window.location.replace('auth.login.html');
+      showStatus('Unable to verify registration status. Please try again.', 'error');
     }
   }
 

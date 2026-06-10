@@ -21,6 +21,21 @@
       </div>
     </div>
     <div class="topbar-right">
+      <div class="notification-bell-wrapper" id="notification-bell-wrapper">
+        <button class="topbar-action-btn notification-bell" id="notification-bell" type="button" title="Notification">
+          <span class="action-icon">🔔</span>
+          <span class="notification-dot" id="notification-dot" style="display: none;"></span>
+          <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+        </button>
+        <div class="notification-dropdown" id="notification-dropdown">
+          <div class="notification-header">
+            <h3>Notification</h3>
+          </div>
+          <div class="notification-list" id="notification-list">
+            <div class="notification-loading">Loading notifications...</div>
+          </div>
+        </div>
+      </div>
       <button class="topbar-action-btn" id="topbar-expand" type="button" title="Fullscreen">
         <span class="action-icon">⛶</span>
       </button>
@@ -46,6 +61,7 @@
           <line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
+  
         Schedule
       </a>
       <a href="../Requests/request.html" class="nav-item">
@@ -224,6 +240,25 @@
       </div>
 
     </main>
+  </div>
+
+  <!-- ===== CREDENTIALS MODAL ===== -->
+  <div id="credentials-modal" class="modal hidden">
+    <div class="modal-overlay" id="credentials-overlay"></div>
+    <div class="modal-container credentials-container">
+      <div class="credentials-header">
+        <button class="credentials-close-btn" id="cred-close" aria-label="Close">←</button>
+        <h3>Registered User</h3>
+      </div>
+      <div class="modal-body">
+        <p class="cred-note">Share these credentials to the user securely.</p>
+        <div class="cred-row"><strong>ID:</strong> <span id="cred-id">—</span></div>
+        <div class="cred-row"><strong>Password:</strong> <span id="cred-pw">—</span></div>
+      </div>
+      <div class="modal-footer credentials-footer">
+        <button class="modal-btn confirm-btn creds-copy-btn" id="cred-copy">Copy all</button>
+      </div>
+    </div>
   </div>
 
   <!-- ===== LOGOUT MODAL ===== -->

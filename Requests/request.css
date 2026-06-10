@@ -31,6 +31,48 @@
   margin: 0;
 }
 
+.req-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.req-stat-card {
+  background: var(--white);
+  border: 1px solid var(--gray-border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.req-stat-label {
+  font-size: 13px;
+  color: var(--text-mid);
+}
+
+.req-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--blue-main);
+}
+
+.req-stat-card--approved .req-stat-value { color: #16a34a; }
+.req-stat-card--rejected .req-stat-value { color: #dc2626; }
+.req-stat-card--finished .req-stat-value { color: #0f766e; }
+.req-stat-card--pending .req-stat-value { color: #f59e0b; }
+
+@media (max-width: 900px) {
+  .req-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .req-stats-row { grid-template-columns: 1fr; }
+}
+
 .req-search-wrap {
   display: flex;
   align-items: center;
@@ -510,8 +552,8 @@
   .req-search-wrap { max-width: 100%; }
   
   /* Hide less important columns on mobile */
-  .req-table th:nth-child(3),
-  .req-table td:nth-child(3) {
+  .req-table th:nth-child(4),
+  .req-table td:nth-child(4) {
     display: none;
   }
   
@@ -546,6 +588,7 @@
     width: 16px;
     height: 16px;
   }
+}
   
   /* Modal responsive for mobile */
   .req-modal-card {
@@ -589,12 +632,17 @@
     font-size: 12px;
     white-space: nowrap;
   }
-}
+
 
 /* Mobile Portrait */
 @media (max-width: 480px) {
-  .req-table th:nth-child(4),
-  .req-table td:nth-child(4) {
+  .req-table th:nth-child(3),
+  .req-table td:nth-child(3) {
+    display: none;
+  }
+  
+  .req-table th:nth-child(5),
+  .req-table td:nth-child(5) {
     display: none;
   }
   
@@ -909,7 +957,6 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Loading state for table rows */
 .loading-row {
   pointer-events: none;
   opacity: 0.7;

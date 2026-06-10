@@ -1,10 +1,10 @@
 /* =============================================
-   FaciliTrack – Change Stats Logic (WITH SKELETON LOADING)
+   FaciliTrack – Change Stats Logic
    ============================================= */
 
-import { 
-  db, 
-  auth, 
+import {
+  db,
+  auth,
   COLLECTIONS,
   getCurrentAdmin,
   formatTimestamp,
@@ -21,6 +21,8 @@ import {
   onAuthStateChanged,
   signOut
 } from "../DatabaseConn/dbconn.js";
+import { initPendingRequestNotifications } from "../HomeDashboard/notification-panel.js";
+import { generateWordDocument } from './generateWordDocument.js';
 
 /* ============================================================
    SIDEBAR & TOPBAR (Same as Dashboard)
@@ -28,22 +30,35 @@ import {
 const hamburger = document.getElementById('hamburger');
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
+const dashLayout = document.getElementById('dash-layout');
 const historyMenu = document.getElementById('historyMenu');
 const historySub = document.getElementById('historySub');
 const historyArrow = document.getElementById('historyArrow');
 
+let sidebarOpen = window.innerWidth >= 768;
+
 function setSidebar(open) {
+  if (!sidebar) return;
+  sidebarOpen = open;
   sidebar.classList.toggle('open', open);
-  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open);
+  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open && window.innerWidth < 768);
   if (hamburger) hamburger.classList.toggle('open', open);
+  if (window.innerWidth >= 768) {
+    sidebar.classList.toggle('force-closed', !open);
+    if (dashLayout) dashLayout.classList.toggle('sidebar-closed', !open);
+  }
 }
 
 if (hamburger) {
-  hamburger.addEventListener('click', () => setSidebar(!sidebar.classList.contains('open')));
+  hamburger.addEventListener('click', () => setSidebar(!sidebarOpen));
 }
 if (sidebarOverlay) {
   sidebarOverlay.addEventListener('click', () => setSidebar(false));
 }
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 768 && sidebarOverlay) sidebarOverlay.classList.remove('show');
+});
+setSidebar(sidebarOpen);
 
 // History submenu toggle
 if (historyArrow) {
@@ -87,6 +102,7 @@ if (profileTrigger) {
   document.addEventListener('click', () => {
     dropdownMenu?.classList.remove('show');
   });
+  initPendingRequestNotifications();
 }
 
 /* ============================================================
@@ -178,7 +194,7 @@ function showSkeletonTable() {
   const tbody = document.getElementById('cs-tbody');
   const emptyEl = document.getElementById('cs-empty');
   if (emptyEl) emptyEl.classList.add('hidden');
-  
+
   if (tbody) {
     tbody.innerHTML = '';
     for (let i = 0; i < 5; i++) {
@@ -193,6 +209,7 @@ function showSkeletonTable() {
         <td><div class="skeleton skeleton-cell-short" style="width: 40px;"></div></td>
         <td>
           <div class="skeleton-actions">
+            <div class="skeleton-icon"></div>
             <div class="skeleton-icon"></div>
           </div>
         </td>
@@ -239,13 +256,13 @@ function showSkeletonDetail() {
       </div>
     `;
   }
-  
+
   const reasonInput = document.getElementById('reschedule-reason');
   if (reasonInput) {
     reasonInput.placeholder = 'Loading...';
     reasonInput.disabled = true;
   }
-  
+
   const btnReschedule = document.getElementById('btn-reschedule');
   if (btnReschedule) {
     btnReschedule.disabled = true;
@@ -253,66 +270,93 @@ function showSkeletonDetail() {
   }
 }
 
-function hideSkeletonDetail(data) {
-  const detailInfo = document.getElementById('detail-info');
-  if (detailInfo && data) {
-    // Populate with actual data - will be done in openDetail
-  }
-  
-  const reasonInput = document.getElementById('reschedule-reason');
-  if (reasonInput) {
-    reasonInput.placeholder = 'Enter reason for rescheduling…';
-    reasonInput.disabled = false;
-    reasonInput.value = '';
-  }
-  
-  const btnReschedule = document.getElementById('btn-reschedule');
-  if (btnReschedule) {
-    btnReschedule.disabled = false;
-    btnReschedule.textContent = 'Reschedule';
-  }
-}
-
 function showButtonLoading(button, text) {
   if (!button) return;
   button.disabled = true;
   button.style.opacity = '0.7';
+  const originalContent = button.innerHTML;
   button.innerHTML = '<span class="skeleton-spinner" style="width: 20px; height: 20px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> ' + text;
+  return originalContent;
 }
 
-function restoreButton(button, originalText) {
+function restoreButton(button, originalText, originalHTML = null) {
   if (!button) return;
   button.disabled = false;
   button.style.opacity = '1';
-  button.textContent = originalText;
-}
-
-function showPageLoading() {
-  const overlay = document.createElement('div');
-  overlay.id = 'page-loading-overlay';
-  overlay.innerHTML = '<div class="skeleton-spinner" style="width: 50px; height: 50px;"></div>';
-  document.body.appendChild(overlay);
-}
-
-function hidePageLoading() {
-  const overlay = document.getElementById('page-loading-overlay');
-  if (overlay) overlay.remove();
+  if (originalHTML) {
+    button.innerHTML = originalHTML;
+  } else {
+    button.textContent = originalText;
+  }
 }
 
 function showToastMessage(message, type = 'success') {
   const existingToast = document.querySelector('.cs-toast');
   if (existingToast) existingToast.remove();
-  
+
   const toast = document.createElement('div');
   toast.className = `cs-toast ${type}`;
   toast.textContent = message;
   document.body.appendChild(toast);
-  
+
   setTimeout(() => {
     toast.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+
+/* ============================================================
+   DOCUMENT GENERATION MODAL
+   ============================================================ */
+const docGenModal = document.getElementById('doc-gen-modal');
+const docGenOverlay = document.getElementById('doc-gen-overlay');
+const docGenClose = document.getElementById('doc-gen-close');
+const generateWordBtn = document.getElementById('generate-word-btn');
+let currentDocGenRequest = null;
+
+function openDocumentGenerator(requestData) {
+  console.log('Opening document generator for:', requestData);
+  currentDocGenRequest = requestData;
+  if (docGenModal) {
+    docGenModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  } else {
+    console.error('Document generator modal not found');
+    showToastMessage('Document generator not available', 'error');
+  }
+}
+
+function closeDocumentGenerator() {
+  if (docGenModal) {
+    docGenModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    currentDocGenRequest = null;
+  }
+}
+
+if (docGenOverlay) {
+  docGenOverlay.addEventListener('click', closeDocumentGenerator);
+}
+if (docGenClose) {
+  docGenClose.addEventListener('click', closeDocumentGenerator);
+}
+if (generateWordBtn) {
+  generateWordBtn.addEventListener('click', () => {
+    if (currentDocGenRequest) {
+      generateWordDocument(currentDocGenRequest);
+      closeDocumentGenerator();
+    } else {
+      showToastMessage('No request data available', 'error');
+    }
+  });
+}
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && docGenModal && !docGenModal.classList.contains('hidden')) {
+    closeDocumentGenerator();
+  }
+});
 
 /* ============================================================
    USER CACHE
@@ -321,19 +365,21 @@ const userCache = new Map();
 
 async function loadUserCache() {
   try {
-    const snap = await getDocs(query(collection(db, 'Registered_User'), where('status', '==', 'active')));
+    // NOTE: Remove the where('status','==','active') clause if your users
+    // don't have a status field, or it will return 0 results silently.
+    const snap = await getDocs(collection(db, COLLECTIONS.REGISTERED_USERS));
     snap.forEach(d => {
       const data = d.data();
       const uid = data.UserID || d.id;
       userCache.set(uid, {
-        firstName: data.First_Name || '',
+        firstName:  data.First_Name  || '',
         middleName: data.Middle_Name || '',
-        lastName: data.Last_Name || '',
-        fullName: data.fullName || `${data.First_Name || ''} ${data.Middle_Name || ''} ${data.Last_Name || ''}`.trim(),
-        position: data.Position || '—',
+        lastName:   data.Last_Name   || '',
+        fullName:   data.fullName    || `${data.First_Name || ''} ${data.Middle_Name || ''} ${data.Last_Name || ''}`.trim(),
+        position:   data.Position    || 'Faculty',
       });
     });
-    console.log(`✅ User cache loaded — ${userCache.size} active users`);
+    console.log(`✅ User cache loaded — ${userCache.size} users`);
   } catch (err) {
     console.error('User cache load error:', err);
   }
@@ -381,11 +427,11 @@ async function init() {
 
       const uid = data.idNumber || data.userId || '';
       const user = userCache.get(uid);
-      data._fullName = user?.fullName || data.fullname || '—';
-      data._position = user?.position || '—';
-      data._firstName = user?.firstName || '';
+      data._fullName  = user?.fullName    || data.fullname || '—';
+      data._position  = user?.position    || '—';
+      data._firstName = user?.firstName   || '';
       data._middleName = user?.middleName || '';
-      data._lastName = user?.lastName || '';
+      data._lastName  = user?.lastName    || '';
       allRequests.push(data);
     });
 
@@ -413,24 +459,24 @@ const table = document.getElementById('cs-table');
 function filterRequests() {
   if (!searchTerm) return allRequests;
   return allRequests.filter(r =>
-    (r.idNumber || '').toLowerCase().includes(searchTerm) ||
-    (r._fullName || '').toLowerCase().includes(searchTerm) ||
-    (r._position || '').toLowerCase().includes(searchTerm) ||
-    (r.event || '').toLowerCase().includes(searchTerm) ||
-    (r.venue || '').toLowerCase().includes(searchTerm)
+    (r.idNumber   || '').toLowerCase().includes(searchTerm) ||
+    (r._fullName  || '').toLowerCase().includes(searchTerm) ||
+    (r._position  || '').toLowerCase().includes(searchTerm) ||
+    (r.event      || '').toLowerCase().includes(searchTerm) ||
+    (r.venue      || '').toLowerCase().includes(searchTerm)
   );
 }
 
 function renderTable(rows) {
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   if (!rows.length) {
     if (table) table.style.display = 'none';
     if (emptyEl) emptyEl.classList.remove('hidden');
     return;
   }
-  
+
   if (table) table.style.display = '';
   if (emptyEl) emptyEl.classList.add('hidden');
 
@@ -443,11 +489,19 @@ function renderTable(rows) {
       <td>${escapeHtml(r.event || '—')}</td>
       <td>${escapeHtml(r.venue || '—')}</td>
       <td><span class="cs-status-badge">Approved</span></td>
-      <td>
-        <button class="cs-action-btn" data-id="${r._docId}" title="Reschedule">
+      <td class="cs-action-cell">
+        <button class="cs-action-btn cs-action-btn--edit" data-id="${r._docId}" title="Reschedule">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
             <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="cs-action-btn cs-action-btn--doc" data-id="${r._docId}" title="Generate Document">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
         </button>
       </td>
@@ -455,41 +509,51 @@ function renderTable(rows) {
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll('.cs-action-btn').forEach(btn => {
-    btn.addEventListener('click', () => handleActionClick(btn.dataset.id));
+  // Reschedule button
+  tbody.querySelectorAll('.cs-action-btn--edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleActionClick(btn.dataset.id);
+    });
+  });
+
+  // Document generation button
+  tbody.querySelectorAll('.cs-action-btn--doc').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.id;
+      const request = allRequests.find(req => req._docId === docId);
+      if (request) {
+        openDocumentGenerator(request);
+      } else {
+        showToastMessage('Request data not found', 'error');
+      }
+    });
   });
 }
-
-document.getElementById('cs-search')?.addEventListener('input', function() {
-  searchTerm = this.value.toLowerCase().trim();
-  renderTable(filterRequests());
-});
 
 /* ============================================================
    AUTH MODALS
    ============================================================ */
-const otlModal = document.getElementById('otl-modal');
-const otlOverlay = document.getElementById('otl-overlay');
-const otlUsername = document.getElementById('otl-username');
-const otlPassword = document.getElementById('otl-password');
-const otlError = document.getElementById('otl-error');
-const otlLoginBtn = document.getElementById('otl-login-btn');
-const otlBtnText = document.getElementById('otl-btn-text');
+const otlModal     = document.getElementById('otl-modal');
+const otlOverlay   = document.getElementById('otl-overlay');
+const otlUsername  = document.getElementById('otl-username');
+const otlPassword  = document.getElementById('otl-password');
+const otlError     = document.getElementById('otl-error');
+const otlLoginBtn  = document.getElementById('otl-login-btn');
 
-const pcregModal = document.getElementById('pcreg-modal');
-const pcregOverlay = document.getElementById('pcreg-overlay');
-const pcregPass = document.getElementById('pcreg-pass');
-const pcregConfirm = document.getElementById('pcreg-confirm');
-const pcregError = document.getElementById('pcreg-error');
+const pcregModal    = document.getElementById('pcreg-modal');
+const pcregOverlay  = document.getElementById('pcreg-overlay');
+const pcregPass     = document.getElementById('pcreg-pass');
+const pcregConfirm  = document.getElementById('pcreg-confirm');
+const pcregError    = document.getElementById('pcreg-error');
 const pcregEnterBtn = document.getElementById('pcreg-enter-btn');
-const pcregBtnText = document.getElementById('pcreg-btn-text');
 
-const pcentryModal = document.getElementById('pcentry-modal');
-const pcentryOverlay = document.getElementById('pcentry-overlay');
-const pcentryPass = document.getElementById('pcentry-pass');
-const pcentryError = document.getElementById('pcentry-error');
+const pcentryModal    = document.getElementById('pcentry-modal');
+const pcentryOverlay  = document.getElementById('pcentry-overlay');
+const pcentryPass     = document.getElementById('pcentry-pass');
+const pcentryError    = document.getElementById('pcentry-error');
 const pcentryEnterBtn = document.getElementById('pcentry-enter-btn');
-const pcentryBtnText = document.getElementById('pcentry-btn-text');
 
 function openOtlModal() {
   if (otlUsername) otlUsername.value = '';
@@ -526,9 +590,9 @@ function closePcEntryModal() {
   if (pcentryModal) pcentryModal.classList.add('hidden');
 }
 
-otlOverlay?.addEventListener('click', closeOtlModal);
-pcregOverlay?.addEventListener('click', closePcRegModal);
-pcentryOverlay?.addEventListener('click', closePcEntryModal);
+if (otlOverlay)    otlOverlay.addEventListener('click', closeOtlModal);
+if (pcregOverlay)  pcregOverlay.addEventListener('click', closePcRegModal);
+if (pcentryOverlay) pcentryOverlay.addEventListener('click', closePcEntryModal);
 
 /* ============================================================
    ONE TIME LOGIN
@@ -545,7 +609,9 @@ async function performOtlLogin() {
     return;
   }
 
+  let originalButtonHTML = null;
   if (otlLoginBtn) {
+    originalButtonHTML = otlLoginBtn.innerHTML;
     showButtonLoading(otlLoginBtn, 'Verifying...');
   }
   if (otlError) otlError.classList.add('hidden');
@@ -567,9 +633,9 @@ async function performOtlLogin() {
       return;
     }
 
-    const adminDoc = snap.docs[0];
-    csAdminDocId = adminDoc.id;
-    const adminData = adminDoc.data();
+    const adminDoc  = snap.docs[0];
+    csAdminDocId    = adminDoc.id;
+    const adminInfo = adminDoc.data();
 
     sessionStorage.setItem('ft_cs_otl_done', 'true');
     sessionStorage.setItem('ft_cs_admin_docid', csAdminDocId);
@@ -577,8 +643,8 @@ async function performOtlLogin() {
 
     closeOtlModal();
 
-    if (adminData.changeStatsPasscode) {
-      csPasscode = adminData.changeStatsPasscode;
+    if (adminInfo.changeStatsPasscode) {
+      csPasscode = adminInfo.changeStatsPasscode;
       sessionStorage.setItem('ft_cs_passcode', csPasscode);
       openPcEntryModal();
     } else {
@@ -592,18 +658,18 @@ async function performOtlLogin() {
       otlError.classList.remove('hidden');
     }
   } finally {
-    if (otlLoginBtn) restoreButton(otlLoginBtn, 'Login');
+    if (otlLoginBtn) restoreButton(otlLoginBtn, 'Login', originalButtonHTML);
   }
 }
 
-otlLoginBtn?.addEventListener('click', performOtlLogin);
-otlPassword?.addEventListener('keydown', e => { if (e.key === 'Enter') performOtlLogin(); });
+if (otlLoginBtn) otlLoginBtn.addEventListener('click', performOtlLogin);
+if (otlPassword) otlPassword.addEventListener('keydown', e => { if (e.key === 'Enter') performOtlLogin(); });
 
 /* ============================================================
    PASSCODE REGISTRATION
    ============================================================ */
 async function performPcRegistration() {
-  const pass = pcregPass?.value.trim() || '';
+  const pass    = pcregPass?.value.trim()    || '';
   const confirm = pcregConfirm?.value.trim() || '';
 
   if (!pass || !confirm) {
@@ -632,13 +698,17 @@ async function performPcRegistration() {
     return;
   }
 
-  if (pcregEnterBtn) showButtonLoading(pcregEnterBtn, 'Saving...');
+  let originalButtonHTML = null;
+  if (pcregEnterBtn) {
+    originalButtonHTML = pcregEnterBtn.innerHTML;
+    showButtonLoading(pcregEnterBtn, 'Saving...');
+  }
   if (pcregError) pcregError.classList.add('hidden');
 
   try {
-    await updateDoc(doc(db, 'Registered_Admin', csAdminDocId), {
-      changeStatsPasscode: pass,
-      passcodeRegisteredAt: serverTimestamp()
+    await updateDoc(doc(db, COLLECTIONS.REGISTERED_ADMIN, csAdminDocId), {
+      changeStatsPasscode:    pass,
+      passcodeRegisteredAt:   serverTimestamp()
     });
 
     csPasscode = pass;
@@ -655,12 +725,12 @@ async function performPcRegistration() {
       pcregError.classList.remove('hidden');
     }
   } finally {
-    if (pcregEnterBtn) restoreButton(pcregEnterBtn, 'Register');
+    if (pcregEnterBtn) restoreButton(pcregEnterBtn, 'Register', originalButtonHTML);
   }
 }
 
-pcregEnterBtn?.addEventListener('click', performPcRegistration);
-pcregConfirm?.addEventListener('keydown', e => { if (e.key === 'Enter') performPcRegistration(); });
+if (pcregEnterBtn) pcregEnterBtn.addEventListener('click', performPcRegistration);
+if (pcregConfirm) pcregConfirm.addEventListener('keydown', e => { if (e.key === 'Enter') performPcRegistration(); });
 
 /* ============================================================
    PASSCODE ENTRY
@@ -676,7 +746,11 @@ async function performPcEntry() {
     return;
   }
 
-  if (pcentryEnterBtn) showButtonLoading(pcentryEnterBtn, 'Verifying...');
+  let originalButtonHTML = null;
+  if (pcentryEnterBtn) {
+    originalButtonHTML = pcentryEnterBtn.innerHTML;
+    showButtonLoading(pcentryEnterBtn, 'Verifying...');
+  }
   if (pcentryError) pcentryError.classList.add('hidden');
 
   try {
@@ -706,12 +780,12 @@ async function performPcEntry() {
       pcentryError.classList.remove('hidden');
     }
   } finally {
-    if (pcentryEnterBtn) restoreButton(pcentryEnterBtn, 'Verify');
+    if (pcentryEnterBtn) restoreButton(pcentryEnterBtn, 'Verify', originalButtonHTML);
   }
 }
 
-pcentryEnterBtn?.addEventListener('click', performPcEntry);
-pcentryPass?.addEventListener('keydown', e => { if (e.key === 'Enter') performPcEntry(); });
+if (pcentryEnterBtn) pcentryEnterBtn.addEventListener('click', performPcEntry);
+if (pcentryPass) pcentryPass.addEventListener('keydown', e => { if (e.key === 'Enter') performPcEntry(); });
 
 /* ============================================================
    HANDLE ACTION CLICK
@@ -730,24 +804,20 @@ function handleActionClick(docId) {
    DETAIL PANEL
    ============================================================ */
 const detailOverlay = document.getElementById('detail-overlay');
-const detailPanel = document.getElementById('detail-panel');
-const detailInfo = document.getElementById('detail-info');
-const reasonInput = document.getElementById('reschedule-reason');
+const detailPanel   = document.getElementById('detail-panel');
+const detailInfo    = document.getElementById('detail-info');
+const reasonInput   = document.getElementById('reschedule-reason');
 const btnReschedule = document.getElementById('btn-reschedule');
 const detailBackBtn = document.getElementById('detail-back-btn');
 
 function openDetail(docId) {
-  // Show skeleton while loading
   showSkeletonDetail();
-  
-  // Open panel
+
   if (detailOverlay) detailOverlay.classList.remove('hidden');
-  if (detailPanel) detailPanel.classList.remove('hidden');
-  
-  // Find the request data
+  if (detailPanel)   detailPanel.classList.remove('hidden');
+
   const r = allRequests.find(req => req._docId === docId);
   if (!r) {
-    // If not found yet, wait a bit
     setTimeout(() => {
       const retryReq = allRequests.find(req => req._docId === docId);
       if (retryReq) {
@@ -758,50 +828,49 @@ function openDetail(docId) {
     }, 500);
     return;
   }
-  
+
   populateDetailInfo(r);
 }
 
 function populateDetailInfo(r) {
   activeDocId = r._docId;
-  activeData = r;
+  activeData  = r;
   if (reasonInput) reasonInput.value = '';
 
-  const uid = r.idNumber || r.userId || '';
+  const uid  = r.idNumber || r.userId || '';
   const user = userCache.get(uid);
 
   if (detailInfo) {
     detailInfo.innerHTML = `
-      ${infoRow('Request ID', r.requestId || r._docId)}
-      ${infoRow('User ID', uid || '—')}
-      ${infoRow('First Name', user?.firstName || r._firstName || '—')}
-      ${infoRow('Middle Name', user?.middleName || r._middleName || '—')}
-      ${infoRow('Last Name', user?.lastName || r._lastName || '—')}
-      ${infoRow('Full Name', user?.fullName || r._fullName || '—')}
-      ${infoRow('Position', user?.position || r._position || '—')}
-      ${infoRow('Event', r.event || '—')}
-      ${infoRow('Description', r.eventDescription || '—')}
-      ${infoRow('Venue', r.venue || '—')}
-      ${infoRow('Date', formatDate(r.date))}
-      ${infoRow('Start Time', r.startTime || '—')}
-      ${infoRow('End Time', r.endTime || '—')}
-      ${infoRow('Items/Equipment', r.item || '—')}
-      ${infoRow('Status', r.status || '—')}
+      ${infoRow('Request ID',    r.requestId || r._docId)}
+      ${infoRow('User ID',       uid || '—')}
+      ${infoRow('First Name',    user?.firstName  || r._firstName  || '—')}
+      ${infoRow('Middle Name',   user?.middleName || r._middleName || '—')}
+      ${infoRow('Last Name',     user?.lastName   || r._lastName   || '—')}
+      ${infoRow('Full Name',     user?.fullName   || r._fullName   || '—')}
+      ${infoRow('Position',      user?.position   || r._position   || '—')}
+      ${infoRow('Event',         r.event          || '—')}
+      ${infoRow('Description',   r.eventDescription || '—')}
+      ${infoRow('Venue',         r.venue          || '—')}
+      ${infoRow('Date',          formatDate(r.date))}
+      ${infoRow('Start Time',    r.startTime      || '—')}
+      ${infoRow('End Time',      r.endTime        || '—')}
+      ${infoRow('Items/Equipment', r.item         || '—')}
+      ${infoRow('Status',        r.status         || '—')}
     `;
   }
-  
-  // Restore reason input and button
+
   if (reasonInput) {
-    reasonInput.disabled = false;
+    reasonInput.disabled    = false;
     reasonInput.placeholder = 'Enter reason for rescheduling…';
-    reasonInput.value = '';
+    reasonInput.value       = '';
   }
-  
+
   if (btnReschedule) {
-    btnReschedule.disabled = false;
+    btnReschedule.disabled    = false;
     btnReschedule.textContent = 'Reschedule';
   }
-  
+
   setTimeout(() => reasonInput?.focus(), 100);
 }
 
@@ -816,52 +885,56 @@ function infoRow(label, value) {
 
 function closeDetail() {
   if (detailOverlay) detailOverlay.classList.add('hidden');
-  if (detailPanel) detailPanel.classList.add('hidden');
+  if (detailPanel)   detailPanel.classList.add('hidden');
   activeDocId = null;
-  activeData = null;
+  activeData  = null;
 }
 
-detailBackBtn?.addEventListener('click', closeDetail);
-detailOverlay?.addEventListener('click', closeDetail);
+if (detailBackBtn) detailBackBtn.addEventListener('click', closeDetail);
+if (detailOverlay) detailOverlay.addEventListener('click', closeDetail);
 
 /* ============================================================
    RESCHEDULE CONFIRMATION
    ============================================================ */
-const confirmModalElem = document.getElementById('confirm-modal');
+const confirmModalElem  = document.getElementById('confirm-modal');
 const confirmOverlayElem = document.getElementById('confirm-overlay');
-const confirmOkBtn = document.getElementById('confirm-ok');
-const confirmCancelBtn = document.getElementById('confirm-cancel');
+const confirmOkBtn      = document.getElementById('confirm-ok');
+const confirmCancelBtn  = document.getElementById('confirm-cancel');
 
-btnReschedule?.addEventListener('click', () => {
-  const reason = reasonInput?.value.trim() || '';
-  if (!reason) {
-    if (reasonInput) {
-      reasonInput.style.borderColor = '#dc2626';
-      reasonInput.placeholder = '⚠ Please enter a reason first.';
-      reasonInput.focus();
-      setTimeout(() => {
-        if (reasonInput) {
-          reasonInput.style.borderColor = '';
-          reasonInput.placeholder = 'Enter reason for rescheduling…';
-        }
-      }, 2500);
+if (btnReschedule) {
+  btnReschedule.addEventListener('click', () => {
+    const reason = reasonInput?.value.trim() || '';
+    if (!reason) {
+      if (reasonInput) {
+        reasonInput.style.borderColor = '#dc2626';
+        reasonInput.placeholder = '⚠ Please enter a reason first.';
+        reasonInput.focus();
+        setTimeout(() => {
+          if (reasonInput) {
+            reasonInput.style.borderColor = '';
+            reasonInput.placeholder = 'Enter reason for rescheduling…';
+          }
+        }, 2500);
+      }
+      return;
     }
-    return;
-  }
-  if (confirmModalElem) confirmModalElem.classList.remove('hidden');
-});
+    if (confirmModalElem) confirmModalElem.classList.remove('hidden');
+  });
+}
 
 function closeConfirm() {
   if (confirmModalElem) confirmModalElem.classList.add('hidden');
 }
 
-confirmCancelBtn?.addEventListener('click', closeConfirm);
-confirmOverlayElem?.addEventListener('click', closeConfirm);
+if (confirmCancelBtn)  confirmCancelBtn.addEventListener('click', closeConfirm);
+if (confirmOverlayElem) confirmOverlayElem.addEventListener('click', closeConfirm);
 
-confirmOkBtn?.addEventListener('click', async () => {
-  closeConfirm();
-  await performReschedule();
-});
+if (confirmOkBtn) {
+  confirmOkBtn.addEventListener('click', async () => {
+    closeConfirm();
+    await performReschedule();
+  });
+}
 
 /* ============================================================
    PERFORM RESCHEDULE
@@ -869,21 +942,23 @@ confirmOkBtn?.addEventListener('click', async () => {
 async function performReschedule() {
   if (!activeDocId) return;
 
-  const reason = reasonInput?.value.trim() || '';
-  const adminId = sessionStorage.getItem('ft_admin_id') || '';
-  const adminName = sessionStorage.getItem('ft_admin_username') || 
-                    sessionStorage.getItem('ft_admin_fullname') || 'Admin';
+  const reason    = reasonInput?.value.trim() || '';
+  const adminId   = sessionStorage.getItem('ft_admin_id')       || '';
+  const adminName = sessionStorage.getItem('ft_admin_username')  ||
+                    sessionStorage.getItem('ft_admin_fullname')  || 'Admin';
 
+  let originalButtonHTML = null;
   if (btnReschedule) {
+    originalButtonHTML = btnReschedule.innerHTML;
     showButtonLoading(btnReschedule, 'Saving...');
   }
 
   try {
     await updateDoc(doc(db, 'requests', activeDocId), {
-      status: 'Rescheduled',
-      rescheduleReason: reason,
-      rescheduledAt: serverTimestamp(),
-      rescheduledBy: adminId,
+      status:            'Rescheduled',
+      rescheduleReason:  reason,
+      rescheduledAt:     serverTimestamp(),
+      rescheduledBy:     adminId,
       rescheduledByName: adminName,
     });
 
@@ -895,7 +970,7 @@ async function performReschedule() {
     console.error('Reschedule error:', err);
     showToastMessage('Failed to reschedule: ' + err.message, 'error');
   } finally {
-    if (btnReschedule) restoreButton(btnReschedule, 'Reschedule');
+    if (btnReschedule) restoreButton(btnReschedule, 'Reschedule', originalButtonHTML);
   }
 }
 
@@ -923,3 +998,5 @@ document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
     }
   });
 });
+
+console.log('Change Stats page loaded successfully');

@@ -108,29 +108,48 @@
           </div>
         </div>
 
-        <!-- Table -->
-        <div class="req-table-wrap">
-          <table class="req-table">
-            <thead>
-              <tr>
-                <th>User Id</th>
-                <th>Full name</th>
-                <th>ID Number</th>
-                <th>Event</th>
-                <th>Venue</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="req-tbody">
-              <!-- Rows injected by JS -->
-            </tbody>
-          </table>
-
-          <!-- Empty state (shown when no requests) -->
-          <div id="req-empty" class="req-empty hidden">
-            <div class="req-empty-text">Oops No Requests</div>
+        <div class="req-stats-row">
+          <div class="req-stat-card req-stat-card--pending">
+            <span class="req-stat-label">Pending</span>
+            <strong class="req-stat-value" id="countPending">0</strong>
+          </div>
+          <div class="req-stat-card req-stat-card--approved">
+            <span class="req-stat-label">Approved</span>
+            <strong class="req-stat-value" id="countApproved">0</strong>
+          </div>
+          <div class="req-stat-card req-stat-card--rejected">
+            <span class="req-stat-label">Rejected</span>
+            <strong class="req-stat-value" id="countRejected">0</strong>
+          </div>
+          <div class="req-stat-card req-stat-card--finished">
+            <span class="req-stat-label">Finished</span>
+            <strong class="req-stat-value" id="countFinished">0</strong>
           </div>
         </div>
+
+        <!-- Table -->
+<div class="req-table-wrap">
+  <table class="req-table">
+    <thead>
+      <tr>
+        <th>User Id</th>
+        <th>Full name</th>
+        <th>Date</th>
+        <th>Event</th>
+        <th>Venue</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="req-tbody">
+      <!-- Rows injected by JS -->
+    </tbody>
+  </table>
+
+  <!-- Empty state (shown when no requests) -->
+  <div id="req-empty" class="req-empty hidden">
+    <div class="req-empty-text">Oops No Requests</div>
+  </div>
+</div>
 
       </div>
     </main>

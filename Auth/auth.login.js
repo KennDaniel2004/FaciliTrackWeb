@@ -1,12 +1,6 @@
 /* =============================================
    FaciliTrack – Login + Forgot Password Modal
    Auth/auth.login.js
-
-   EmailJS Setup (free — https://emailjs.com):
-   1. Create account → Add Gmail service → copy SERVICE_ID
-   2. Create template with vars: {{to_email}} {{admin_name}} {{code}}
-   3. Copy TEMPLATE_ID and PUBLIC_KEY
-   4. Replace the three constants below
    ============================================= */
 
 import { db } from "../DatabaseConn/dbconn.js";
@@ -23,110 +17,91 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
+// EmailJS Configuration
+const EMAILJS_SERVICE_ID  = 'service_d5ozvmc';
+const EMAILJS_TEMPLATE_ID = 'template_j6l5len';
+const EMAILJS_PUBLIC_KEY  = 'pRi3_fVBj_qdIcz_j';
 
-const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
-const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
-const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+const RESEND_COOLDOWN = 60;
 
-const RESEND_COOLDOWN = 60; 
+// Load and initialize EmailJS immediately
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+script.onload = () => {
+  emailjs.init(EMAILJS_PUBLIC_KEY);
+  console.log('[EmailJS] Initialized');
+};
+script.onerror = () => console.error('[EmailJS] Failed to load');
+document.head.appendChild(script);
 
-
-(function () {
-  const s   = document.createElement('script');
-  s.src     = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
-  s.onload  = () => emailjs.init(EMAILJS_PUBLIC_KEY);
-  s.onerror = () => console.error('EmailJS SDK failed to load');
-  document.head.appendChild(s);
-})();
-
-
-
-
-// toogle pass
-
-
-
-const EYE_OPEN = `
-  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-  <circle cx="12" cy="12" r="3"/>
-`;
-const EYE_CLOSED = `
-  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8
-           a18.45 18.45 0 0 1 5.06-5.94"/>
-  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8
-           a18.5 18.5 0 0 1-2.16 3.19"/>
-  <line x1="1" y1="1" x2="23" y2="23"/>
-`;
+// Eye toggle SVG paths
+const EYE_OPEN = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+const EYE_CLOSED = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8 a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8 a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
 
 function makeEyeToggle(btnId, inputId, svgId) {
-  const btn   = document.getElementById(btnId);
+  const btn = document.getElementById(btnId);
   const input = document.getElementById(inputId);
-  const svg   = document.getElementById(svgId);
+  const svg = document.getElementById(svgId);
   if (!btn || !input || !svg) return;
   svg.innerHTML = EYE_OPEN;
-  let visible   = false;
+  let visible = false;
   btn.addEventListener('click', () => {
-    visible      = !visible;
-    input.type   = visible ? 'text' : 'password';
+    visible = !visible;
+    input.type = visible ? 'text' : 'password';
     svg.innerHTML = visible ? EYE_CLOSED : EYE_OPEN;
   });
 }
 
-const loginBtn      = document.getElementById('login-btn');
+// DOM Elements
+const loginBtn = document.getElementById('login-btn');
 const usernameInput = document.getElementById('login-username');
 const passwordInput = document.getElementById('login-password');
-const loginStatus   = document.getElementById('login-status');
-const navRegister   = document.getElementById('nav-register');
-const goRegister    = document.getElementById('go-register');
-const goForgot      = document.getElementById('go-forgot');
-
-
+const loginStatus = document.getElementById('login-status');
+const navRegister = document.getElementById('nav-register');
+const goRegister = document.getElementById('go-register');
+const goForgot = document.getElementById('go-forgot');
 
 // Modal elements
-
-const overlay       = document.getElementById('ft-modal-overlay');
-const modalVerify   = document.getElementById('modal-verify');
-const modalReset    = document.getElementById('modal-reset');
-const verifyStatus  = document.getElementById('verify-status');
-const resetStatus   = document.getElementById('reset-status');
-const verifyCodeIn  = document.getElementById('verify-code');
-const verifyBtn     = document.getElementById('verify-btn');
-const resendWrap    = document.getElementById('resend-wrap');
-const resendTimer   = document.getElementById('resend-timer');
-const resendLink    = document.getElementById('resend-link');
+const overlay = document.getElementById('ft-modal-overlay');
+const modalVerify = document.getElementById('modal-verify');
+const modalReset = document.getElementById('modal-reset');
+const verifyStatus = document.getElementById('verify-status');
+const resetStatus = document.getElementById('reset-status');
+const verifyCodeIn = document.getElementById('verify-code');
+const verifyBtn = document.getElementById('verify-btn');
+const resendWrap = document.getElementById('resend-wrap');
+const resendTimer = document.getElementById('resend-timer');
+const resendLink = document.getElementById('resend-link');
 const resetUsername = document.getElementById('reset-username');
 const resetPassword = document.getElementById('reset-password');
-const resetConfirm  = document.getElementById('reset-confirm');
-const changeBtn     = document.getElementById('change-btn');
+const resetConfirm = document.getElementById('reset-confirm');
+const changeBtn = document.getElementById('change-btn');
 const modalLoginBtn = document.getElementById('modal-login-btn');
 
-// Eye toggles
-
-
-makeEyeToggle('toggle-password',      'login-password',  'eye-icon');
-makeEyeToggle('toggle-reset-pw',      'reset-password',  'eye-reset-pw');
-makeEyeToggle('toggle-reset-confirm', 'reset-confirm',   'eye-reset-confirm');
-
+// Initialize eye toggles
+makeEyeToggle('toggle-password', 'login-password', 'eye-icon');
+makeEyeToggle('toggle-reset-pw', 'reset-password', 'eye-reset-pw');
+makeEyeToggle('toggle-reset-confirm', 'reset-confirm', 'eye-reset-confirm');
 
 let countdownInterval = null;
-let verifiedAdminId   = null;   
-let resetGmail        = null;   
-
+let verifiedAdminId = null;
+let resetGmail = null;
+let adminDataCache = null;
 
 function showLoginStatus(msg, type) {
   loginStatus.textContent = msg;
-  loginStatus.className   = 'ft-status' + (type ? ' ' + type : '');
+  loginStatus.className = 'ft-status' + (type ? ' ' + type : '');
 }
 
 function setVerifyStatus(msg, type) {
   verifyStatus.textContent = msg;
-  verifyStatus.className   = 'ft-modal-status ' + (type || '');
+  verifyStatus.className = 'ft-modal-status ' + (type || '');
   verifyStatus.style.display = msg ? 'block' : 'none';
 }
 
 function setResetStatus(msg, type) {
   resetStatus.textContent = msg;
-  resetStatus.className   = 'ft-modal-status ' + (type || '');
+  resetStatus.className = 'ft-modal-status ' + (type || '');
   resetStatus.style.display = msg ? 'block' : 'none';
 }
 
@@ -134,6 +109,23 @@ function generateCode() {
   return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
+function startResendCountdown() {
+  let remaining = RESEND_COOLDOWN;
+  resendWrap.style.display = 'block';
+  resendLink.style.display = 'none';
+  resendTimer.textContent = `Resend code in ${remaining}s`;
+  clearInterval(countdownInterval);
+  countdownInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      resendTimer.textContent = '';
+      resendLink.style.display = 'inline';
+    } else {
+      resendTimer.textContent = `Resend code in ${remaining}s`;
+    }
+  }, 1000);
+}
 
 async function checkRegistrationLock() {
   try {
@@ -148,27 +140,23 @@ async function checkRegistrationLock() {
 }
 checkRegistrationLock();
 
+// ========== LOGIN HANDLER ==========
 async function handleLogin() {
   loginStatus.textContent = '';
-  loginStatus.className   = 'ft-status';
-
   const username = usernameInput.value.trim();
   const password = passwordInput.value;
 
   if (!username) { showLoginStatus('Please enter your username.'); usernameInput.focus(); return; }
   if (!password) { showLoginStatus('Please enter your password.'); passwordInput.focus(); return; }
 
-  loginBtn.disabled    = true;
+  loginBtn.disabled = true;
   loginBtn.textContent = 'Logging in…';
 
   try {
-    const snap = await getDocs(
-      query(collection(db, 'Registered_Admin'), where('username', '==', username))
-    );
-
+    const snap = await getDocs(query(collection(db, 'Registered_Admin'), where('username', '==', username)));
     if (snap.empty) { showLoginStatus('Invalid username or password.'); return; }
 
-    const adminDoc  = snap.docs[0];
+    const adminDoc = snap.docs[0];
     const adminData = adminDoc.data();
 
     if (adminData.password !== password) { showLoginStatus('Invalid username or password.'); return; }
@@ -177,30 +165,23 @@ async function handleLogin() {
       return;
     }
 
-    sessionStorage.setItem('ft_admin_id',       adminDoc.id);
-    sessionStorage.setItem('ft_admin_username',  adminData.username);
-    sessionStorage.setItem('ft_admin_fullname',  adminData.fullName || '');
-    sessionStorage.setItem('ft_admin_gmail',     adminData.gmail    || '');
-    sessionStorage.setItem('ft_admin_role',      adminData.role     || 'admin');
+    sessionStorage.setItem('ft_admin_id', adminDoc.id);
+    sessionStorage.setItem('ft_admin_username', adminData.username);
+    sessionStorage.setItem('ft_admin_fullname', adminData.fullName || '');
+    sessionStorage.setItem('ft_admin_gmail', adminData.gmail || '');
+    sessionStorage.setItem('ft_admin_role', adminData.role || 'admin');
 
     showLoginStatus('Login successful! Redirecting…', 'success');
     setTimeout(() => { window.location.href = '../HomeDashboard/dashboard.html'; }, 1200);
-
   } catch (err) {
     showLoginStatus('Login failed: ' + err.message);
   } finally {
-    loginBtn.disabled    = false;
+    loginBtn.disabled = false;
     loginBtn.textContent = 'Login';
   }
 }
 
-loginBtn.addEventListener('click', handleLogin);
-[usernameInput, passwordInput].forEach(el => {
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
-  el.addEventListener('input',   () => { loginStatus.textContent = ''; loginStatus.className = 'ft-status'; });
-});
-
-
+// ========== FORGOT PASSWORD MODAL ==========
 goForgot.addEventListener('click', async function (e) {
   e.preventDefault();
   openModal();
@@ -208,27 +189,26 @@ goForgot.addEventListener('click', async function (e) {
 });
 
 function openModal() {
-  overlay.style.display     = 'flex';
+  overlay.style.display = 'flex';
   modalVerify.style.display = 'block';
-  modalReset.style.display  = 'none';
-  verifyCodeIn.value        = '';
-  setVerifyStatus('Sending Verification Code ….', 'sending');
+  modalReset.style.display = 'none';
+  verifyCodeIn.value = '';
+  setVerifyStatus('Sending verification code...', 'sending');
 }
 
 function closeModal() {
   overlay.style.display = 'none';
   clearInterval(countdownInterval);
   verifiedAdminId = null;
-  resetGmail      = null;
+  resetGmail = null;
+  adminDataCache = null;
 }
-
 
 modalLoginBtn.addEventListener('click', closeModal);
 
-
+// ========== SEND VERIFICATION CODE - FIXED with 'email' variable ==========
 async function sendVerificationCode() {
   try {
-    /* Get the ONE admin in Registered_Admin */
     const snap = await getDocs(query(collection(db, 'Registered_Admin'), limit(1)));
 
     if (snap.empty) {
@@ -236,83 +216,82 @@ async function sendVerificationCode() {
       return;
     }
 
-    const adminDoc  = snap.docs[0];
+    const adminDoc = snap.docs[0];
     const adminData = adminDoc.data();
-    const gmail     = adminData.gmail;
-    const code      = generateCode();
+    const gmail = adminData.gmail;
+
+    if (!gmail || gmail === '') {
+      setVerifyStatus('Admin email not configured. Contact support.', 'error');
+      return;
+    }
+
+    console.log('Sending to email:', gmail);
+    const code = generateCode();
+    console.log('Generated code:', code);
 
     resetGmail = gmail;
-
+    adminDataCache = { id: adminDoc.id, data: adminData };
 
     await setDoc(doc(db, 'Password_Reset_Codes', gmail), {
-      gmail:     gmail,
-      adminId:   adminDoc.id,
-      code:      code,
-      used:      false,
+      gmail: gmail,
+      adminId: adminDoc.id,
+      code: code,
+      used: false,
       createdAt: serverTimestamp(),
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min expiry
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
 
+    // Wait for EmailJS to be ready
+    let retries = 0;
+    while (!window.emailjs && retries < 20) {
+      await new Promise(r => setTimeout(r, 500));
+      retries++;
+    }
 
-    await emailjs.send(
+    if (!window.emailjs) {
+      setVerifyStatus('Email service not loaded. Please refresh and try again.', 'error');
+      return;
+    }
+
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+
+    // IMPORTANT: Using 'email' not 'to_email' to match template
+    const templateParams = {
+      email: gmail,
+      admin_name: adminData.fullName || adminData.username || 'Admin',
+      code: code,
+    };
+
+    console.log('Sending with params:', templateParams);
+
+    const response = await emailjs.send(
       EMAILJS_SERVICE_ID,
       EMAILJS_TEMPLATE_ID,
-      {
-        to_email:   gmail,
-        admin_name: adminData.fullName || adminData.username,
-        code:       code,
-      },
-      EMAILJS_PUBLIC_KEY
+      templateParams
     );
 
-    setVerifyStatus(
-      'Verification Code was sent — please enter the code to reset your password',
-      'success'
-    );
+    console.log('Email sent successfully:', response);
+    setVerifyStatus('Verification code sent! Check your Gmail inbox.', 'success');
     startResendCountdown();
 
   } catch (err) {
     console.error('Send code error:', err);
-    setVerifyStatus('Failed to send code: ' + err.message, 'error');
+    setVerifyStatus('Failed to send code: ' + (err.message || err.text || 'Unknown error'), 'error');
   }
-}
-
-
-function startResendCountdown() {
-  let remaining = RESEND_COOLDOWN;
-  resendWrap.style.display = 'block';
-  resendLink.style.display = 'none';
-  resendTimer.textContent  = `Resend code in ${remaining}s`;
-
-  clearInterval(countdownInterval);
-  countdownInterval = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(countdownInterval);
-      resendTimer.textContent  = '';
-      resendLink.style.display = 'inline';
-    } else {
-      resendTimer.textContent = `Resend code in ${remaining}s`;
-    }
-  }, 1000);
 }
 
 resendLink.addEventListener('click', async function (e) {
   e.preventDefault();
   resendLink.style.display = 'none';
-  setVerifyStatus('Sending Verification Code ….', 'sending');
+  setVerifyStatus('Sending verification code...', 'sending');
   await sendVerificationCode();
 });
 
-
-
-// verify code
-
+// ========== VERIFY CODE ==========
 verifyBtn.addEventListener('click', handleVerify);
-verifyCodeIn.addEventListener('keydown', e => {
+verifyCodeIn.addEventListener('keydown', function (e) {
   if (e.key === 'Enter') handleVerify();
-  // digits only
-  if (!/[\d\b]/.test(e.key) && !['ArrowLeft','ArrowRight','Delete','Tab','Backspace'].includes(e.key)) {
+  if (!/[\d\b]/.test(e.key) && !['ArrowLeft', 'ArrowRight', 'Delete', 'Tab', 'Backspace'].includes(e.key)) {
     e.preventDefault();
   }
 });
@@ -326,12 +305,11 @@ async function handleVerify() {
     return;
   }
 
-  verifyBtn.disabled    = true;
+  verifyBtn.disabled = true;
   verifyBtn.textContent = 'Verifying…';
 
   try {
     const codeDoc = await getDoc(doc(db, 'Password_Reset_Codes', resetGmail));
-
     if (!codeDoc.exists()) {
       setVerifyStatus('No code found. Please request a new one.', 'error');
       return;
@@ -358,21 +336,24 @@ async function handleVerify() {
     verifiedAdminId = data.adminId;
     clearInterval(countdownInterval);
 
-
     modalVerify.style.display = 'none';
-    modalReset.style.display  = 'block';
+    modalReset.style.display = 'block';
     setResetStatus('', '');
-    resetUsername.focus();
+    
+    if (adminDataCache && adminDataCache.data.username) {
+      resetUsername.value = adminDataCache.data.username;
+    }
+    resetPassword.focus();
 
   } catch (err) {
     setVerifyStatus('Verification failed: ' + err.message, 'error');
   } finally {
-    verifyBtn.disabled    = false;
+    verifyBtn.disabled = false;
     verifyBtn.textContent = 'Verify';
   }
 }
 
-
+// ========== RESET PASSWORD ==========
 changeBtn.addEventListener('click', handleReset);
 [resetPassword, resetConfirm].forEach(el =>
   el.addEventListener('keydown', e => { if (e.key === 'Enter') handleReset(); })
@@ -382,7 +363,7 @@ async function handleReset() {
   setResetStatus('', '');
   const newUsername = resetUsername.value.trim();
   const newPassword = resetPassword.value;
-  const confirm     = resetConfirm.value;
+  const confirm = resetConfirm.value;
 
   if (!newUsername) { setResetStatus('Please enter a new username.', 'error'); resetUsername.focus(); return; }
   if (newUsername.length < 4) { setResetStatus('Username must be at least 4 characters.', 'error'); resetUsername.focus(); return; }
@@ -390,15 +371,11 @@ async function handleReset() {
   if (newPassword.length < 6) { setResetStatus('Password must be at least 6 characters.', 'error'); resetPassword.focus(); return; }
   if (newPassword !== confirm) { setResetStatus('Passwords do not match.', 'error'); resetConfirm.focus(); return; }
 
-  changeBtn.disabled    = true;
+  changeBtn.disabled = true;
   changeBtn.textContent = 'Saving…';
 
   try {
-  
-    const dupSnap = await getDocs(
-      query(collection(db, 'Registered_Admin'), where('username', '==', newUsername))
-    );
-
+    const dupSnap = await getDocs(query(collection(db, 'Registered_Admin'), where('username', '==', newUsername)));
     const takenByOther = dupSnap.docs.some(d => d.id !== verifiedAdminId);
     if (takenByOther) {
       setResetStatus('Username already taken. Please choose another.', 'error');
@@ -408,13 +385,12 @@ async function handleReset() {
 
     await updateDoc(doc(db, 'Registered_Admin', verifiedAdminId), {
       username: newUsername,
-      password: newPassword,  
+      password: newPassword,
     });
-
 
     await updateDoc(doc(db, 'Password_Reset_Codes', resetGmail), { used: true });
 
-    setResetStatus('Password changed successfully! Redirecting to login…', 'success');
+    setResetStatus('Password changed successfully! Redirecting to login...', 'success');
 
     setTimeout(() => {
       closeModal();
@@ -424,7 +400,12 @@ async function handleReset() {
   } catch (err) {
     setResetStatus('Failed to update: ' + err.message, 'error');
   } finally {
-    changeBtn.disabled    = false;
+    changeBtn.disabled = false;
     changeBtn.textContent = 'Change';
   }
 }
+
+loginBtn.addEventListener('click', handleLogin);
+[usernameInput, passwordInput].forEach(el => {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+});

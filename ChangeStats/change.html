@@ -22,6 +22,21 @@
       </div>
     </div>
     <div class="topbar-right">
+      <div class="notification-bell-wrapper" id="notification-bell-wrapper">
+        <button class="topbar-action-btn notification-bell" id="notification-bell" type="button" title="Notification">
+          <span class="action-icon">🔔</span>
+          <span class="notification-dot" id="notification-dot" style="display: none;"></span>
+          <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+        </button>
+        <div class="notification-dropdown" id="notification-dropdown">
+          <div class="notification-header">
+            <h3>Notification</h3>
+          </div>
+          <div class="notification-list" id="notification-list">
+            <div class="notification-loading">Loading notifications...</div>
+          </div>
+        </div>
+      </div>
       <button class="topbar-action-btn" id="topbar-expand" type="button" title="Fullscreen">
         <span class="action-icon">⛶</span>
       </button>
@@ -324,6 +339,43 @@
       </div>
     </div>
   </div>
+
+     <!-- =====================================================
+       DOCUMENT GENERATION MODAL (Word Download)
+       ===================================================== -->
+  <div id="doc-gen-modal" class="cs-doc-gen-modal hidden">
+    <div class="cs-doc-gen-overlay" id="doc-gen-overlay"></div>
+    <div class="cs-doc-gen-container">
+      <div class="cs-doc-gen-header">
+        <h3 class="cs-doc-gen-title">Generate Request Document</h3>
+        <button class="cs-doc-gen-close" id="doc-gen-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="cs-doc-gen-body">
+        <div class="cs-doc-gen-options">
+          <p class="cs-doc-gen-desc">Generate a formal request document for this approved request.</p>
+          <div class="cs-doc-gen-buttons">
+            <button class="cs-doc-gen-btn cs-doc-gen-btn--word" id="generate-word-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              Download as Microsoft Word
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- LOGOUT MODAL -->
   <div id="logout-modal" class="modal hidden">

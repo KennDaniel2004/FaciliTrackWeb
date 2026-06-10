@@ -880,4 +880,348 @@ html.expanded-fullscreen .dash-main { min-height: calc(100vh - var(--topbar-h));
     width: 12px; 
     height: 12px; 
   }
+
+
+
+
+  /* Add these styles to dashboard.css */
+
+/* ============================================================
+   NOTIFICATION BELL & DROPDOWN STYLES
+   Facebook-style notification panel
+   ============================================================ */
+
+.notification-bell-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notification-bell {
+  position: relative;
+  cursor: pointer;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 2px solid var(--white);
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  font-family: var(--font);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Notification Dropdown */
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: none;
+  overflow: hidden;
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+.notification-dropdown.show {
+  display: block;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Notification Header */
+.notification-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--gray-border);
+  background: var(--white);
+}
+
+.notification-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 12px;
+}
+
+/* Notification List */
+.notification-list {
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gray-border);
+  cursor: pointer;
+  transition: background 0.2s;
+  position: relative;
+}
+
+.notification-item:hover {
+  background: var(--gray-bg);
+}
+
+.notification-item.unread {
+  background: #eff6ff;
+}
+
+.notification-item.unread::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--blue-main);
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.notification-icon.approved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.notification-icon.rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.notification-icon.pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.notification-icon.info {
+  background: #dbeafe;
+  color: var(--blue-main);
+}
+
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.notification-message {
+  font-size: 12px;
+  color: var(--text-mid);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.notification-details {
+  font-size: 11px;
+  color: var(--text-mid);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.notification-details div {
+  margin-top: 2px;
+}
+
+.notification-time {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.notification-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--gray-border);
+  text-align: center;
+}
+
+.notification-footer a {
+  color: var(--blue-main);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notification-footer a:hover {
+  text-decoration: underline;
+}
+
+.notification-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-light);
+}
+
+.notification-empty svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.notification-empty p {
+  font-size: 14px;
+}
+
+.notification-loading {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-light);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  .notification-dropdown {
+    position: fixed;
+    top: var(--topbar-h);
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 0;
+    max-height: calc(100vh - var(--topbar-h));
+  }
+  
+  .notification-list {
+    max-height: calc(100vh - var(--topbar-h) - 140px);
+  }
+}
+
+
+
+/* Add to dashboard.css - Notification status badges */
+
+/* Status badges for notifications */
+.notif-status-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.notif-status-badge.approved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.notif-status-badge.rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.notif-status-badge.pending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+/* Ensure notification message has proper spacing */
+.notification-message {
+  font-size: 12px;
+  color: var(--text-mid);
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.notification-message strong {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+/* Remove footer link styling - no "See all notifications" */
+.notification-footer {
+  display: none;
+}
+
+/* Adjust notification list max height since footer is removed */
+.notification-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Empty state styling */
+.notification-empty svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.notification-empty p {
+  font-size: 14px;
+  color: var(--text-light);
+}
+
+.notification-empty p:first-of-type {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+
 }

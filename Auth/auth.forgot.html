@@ -60,6 +60,28 @@
         <a href="#" id="resend-link" style="display:none;">Resend Code</a>
       </div>
 
+      <!-- Reset Code Display Modal -->
+      <div id="code-modal" class="ft-code-modal" style="display:none;">
+        <div class="ft-code-modal__overlay"></div>
+        <div class="ft-code-modal__container">
+          <div class="ft-code-modal__header">
+            <h2>Your Reset Code</h2>
+            <button class="ft-code-modal__close" id="code-modal-close">×</button>
+          </div>
+          <div class="ft-code-modal__body">
+            <p class="ft-code-modal__desc">A verification code has been sent to your Gmail. Your code is:</p>
+            <div class="ft-code-display">
+              <div class="ft-code-value" id="code-value">••••••••</div>
+              <button class="ft-code-copy" id="code-copy-btn" title="Copy code">📋 Copy</button>
+            </div>
+            <p class="ft-code-modal__note">This code will expire in 15 minutes. Do not share it with anyone.</p>
+          </div>
+          <div class="ft-code-modal__footer">
+            <button class="ft-btn" id="code-modal-continue">Continue</button>
+          </div>
+        </div>
+      </div>
+
       <p class="ft-card__alt">
         Remember your password? <a href="auth.login.html">Login here</a>
       </p>

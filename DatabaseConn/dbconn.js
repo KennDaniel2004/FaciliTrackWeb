@@ -44,10 +44,11 @@ const analytics = getAnalytics(app);
 const COLLECTIONS = {
   REQUESTS: 'requests',
   REGISTERED_ADMIN: 'Registered_Admin',
-  REGISTERED_USERS: 'Registered_Users',
+  REGISTERED_USERS: 'Registered_User',
   ADMIN_LOGS: 'Admin_Logs',
   PASSWORD_RESET_CODES: 'Password_Reset_Codes',
-  ONE_TIME_PASSCODE: 'One_Time_Passcode'
+  ONE_TIME_PASSCODE: 'One_Time_Passcode',
+  NOTIFICATION: 'Notification'
 };
 
 // Helper function to get current admin from sessionStorage

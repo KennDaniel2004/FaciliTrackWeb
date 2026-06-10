@@ -280,6 +280,22 @@
   white-space: nowrap;
 }
 
+.usr-pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.usr-distribute-btn {
+  background: #fff3cd;
+  color: #92400e;
+  border: 1px solid #f1c232;
+  padding: 6px 10px;
+  border-radius: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.usr-distribute-btn:hover { background: #fff0b8; }
+
 /* ============================================================
    EMPTY STATE
    ============================================================ */
@@ -650,4 +666,145 @@
 @media (max-width: 400px) {
   .usr-active-grid { grid-template-columns: 1fr; }
   .usr-search-wrap { min-width: 140px; }
+}
+
+/* Credentials modal */
+.credentials-container { max-width: 380px; padding: 24px; }
+.credentials-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.credentials-close-btn {
+  border: none;
+  background: transparent;
+  color: var(--blue-main);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+.credentials-header h3 {
+  margin: 0;
+  color: var(--blue-main);
+  font-size: 18px;
+  letter-spacing: 0.2px;
+  font-weight: 800;
+}
+.credentials-container .cred-note {
+  margin-bottom: 18px;
+  color: var(--blue-main);
+  opacity: 0.9;
+  line-height: 1.6;
+}
+.credentials-container .cred-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.credentials-container .cred-row strong {
+  width: 90px;
+  display: inline-block;
+  color: var(--blue-main);
+  font-weight: 700;
+}
+.credentials-container .cred-row span {
+  color: var(--text-dark);
+  text-align: right;
+  word-break: break-all;
+}
+.credentials-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 18px;
+}
+.creds-copy-btn {
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 999px;
+  background: var(--blue-main);
+  color: var(--white);
+  border: none;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+.creds-copy-btn:hover { background: #1636c7; }
+
+#credentials-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12000;
+}
+#credentials-modal .modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.32);
+}
+#credentials-modal .modal-container.credentials-container {
+  position: relative;
+  z-index: 12001;
+  width: 360px;
+  max-width: calc(100% - 40px);
+  margin: 0 16px;
+  background: var(--white);
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(42, 89, 218, 0.14);
+  padding: 24px 26px;
+}
+
+@media (max-width: 480px) {
+  #credentials-modal .modal-container.credentials-container { width: 92%; padding: 18px; }
+  #credentials-modal .credentials-container .cred-row strong { width: 76px; }
+}
+
+
+
+/* Toggle Password Button Styles */
+.toggle-password-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--blue-main);
+  transition: color 0.2s ease;
+}
+
+.toggle-password-btn:hover {
+  color: var(--blue-dark);
+}
+
+/* Password row alignment */
+.cred-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.cred-row strong {
+  min-width: 90px;
+  display: inline-block;
+  color: var(--blue-main);
+  font-weight: 700;
+}
+
+.cred-row > div {
+  flex: 1;
+}
+
+#account-password {
+  font-family: monospace;
+  font-size: 13px;
+  letter-spacing: 0.5px;
 }

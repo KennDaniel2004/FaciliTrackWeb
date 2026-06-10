@@ -1,11 +1,6 @@
-/* =============================================
-   FaciliTrack – Monitoring Panel Logic
-   Monitoring/monitoring.js
 
-   Analytics Dashboard with Charts
-   ============================================= */
 
-import { db } from "../DatabaseConn/dbconn.js";
+import { db, COLLECTIONS } from "../DatabaseConn/dbconn.js";
 import {
   collection,
   query,
@@ -13,26 +8,20 @@ import {
   getDocs,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+import { initPendingRequestNotifications } from "../HomeDashboard/notification-panel.js";
 
-/* ============================================================
-   SESSION GUARD
-   ============================================================ */
+
 if (!sessionStorage.getItem('ft_admin_id')) {
   window.location.replace('../Auth/auth.login.html');
 }
 
-/* ============================================================
-   TOPBAR
-   ============================================================ */
 const fullname = sessionStorage.getItem('ft_admin_fullname') || 'Admin';
 const parts = fullname.trim().split(' ');
 const initials = (parts[0]?.[0] || '') + (parts[parts.length - 1]?.[0] || '');
 document.getElementById('topbar-fullname').textContent = fullname;
 document.getElementById('topbar-avatar').textContent = initials.toUpperCase();
 
-/* ============================================================
-   FULLSCREEN FUNCTIONALITY
-   ============================================================ */
+
 const topbarExpand = document.getElementById('topbar-expand');
 const EXPAND_STATE_KEY = 'ft_expand_all';
 
@@ -68,9 +57,8 @@ topbarExpand?.addEventListener('click', async () => {
 
 document.addEventListener('fullscreenchange', () => setExpandState(Boolean(document.fullscreenElement)));
 
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
+// Sidebar toggle logic
+
 const hamburger = document.getElementById('hamburger');
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -94,9 +82,8 @@ window.addEventListener('resize', () => {
 });
 setSidebar(sidebarOpen);
 
-/* ============================================================
-   LOGOUT
-   ============================================================ */
+// logout and profile dropdown logic
+
 const logoutModal = document.getElementById('logout-modal');
 const profileTrigger = document.getElementById('profile-trigger');
 const dropdownMenu = document.getElementById('dropdown-menu');
@@ -124,14 +111,13 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') logoutModal.classList.add('hidden');
 });
 
-/* ============================================================
-   REQUESTS BADGE
-   ============================================================ */
+initPendingRequestNotifications();
+
 function updateRequestsBadge() {
   const badge = document.getElementById('requests-badge');
   if (!badge) return;
   
-  const pendingQuery = query(collection(db, 'requests'), where('status', '==', 'Pending'));
+  const pendingQuery = query(collection(db, COLLECTIONS.REQUESTS), where('status', '==', 'Pending'));
   onSnapshot(pendingQuery, (snapshot) => {
     const pendingCount = snapshot.size;
     if (pendingCount > 0) {
@@ -144,9 +130,7 @@ function updateRequestsBadge() {
 }
 updateRequestsBadge();
 
-/* ============================================================
-   MONITORING LOGIC
-   ============================================================ */
+
 let currentPeriod = 'week';
 let currentYear = 2026;
 let currentMonth = new Date().getMonth();
@@ -170,8 +154,7 @@ periodBtns.forEach(btn => {
     periodBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentPeriod = btn.dataset.period;
-    
-    // Show/hide month selector
+
     if (currentPeriod === 'month') {
       monthSelectGroup.style.display = 'flex';
     } else {
@@ -194,7 +177,7 @@ monthSelect.addEventListener('change', (e) => {
 
 // Load all requests from Firestore
 async function loadRequests() {
-  const requestsQuery = query(collection(db, 'requests'));
+  const requestsQuery = query(collection(db, COLLECTIONS.REQUESTS));
   const snapshot = await getDocs(requestsQuery);
   allRequests = [];
   snapshot.forEach(doc => {
@@ -203,25 +186,24 @@ async function loadRequests() {
   return allRequests;
 }
 
-// Filter requests by date range
 function filterRequestsByDate(requests, period, year, month = null) {
   const now = new Date();
   let startDate, endDate;
   
   if (period === 'week') {
-    // Last 7 days
+
     startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
     startDate.setHours(0, 0, 0, 0);
     endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
   } else if (period === 'month') {
-    // Specific month of specific year
+
     startDate = new Date(year, month, 1);
     endDate = new Date(year, month + 1, 0);
     endDate.setHours(23, 59, 59, 999);
   } else {
-    // Full year
+   
     startDate = new Date(year, 0, 1);
     endDate = new Date(year, 11, 31);
     endDate.setHours(23, 59, 59, 999);

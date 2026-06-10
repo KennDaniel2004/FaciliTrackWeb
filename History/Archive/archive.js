@@ -154,18 +154,6 @@ function showSkeletonLoading() {
   if (archivedThisMonthSpan) archivedThisMonthSpan.textContent = '--';
 }
 
-function showButtonLoading(button, originalText) {
-  button.disabled = true;
-  button.style.opacity = '0.7';
-  button.innerHTML = '<span class="skeleton-spinner" style="width: 16px; height: 16px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> Processing...';
-}
-
-function restoreButton(button, originalText) {
-  button.disabled = false;
-  button.style.opacity = '1';
-  button.textContent = originalText;
-}
-
 // ── Auth Check ─────────────────────────────────────────────────
 onAuthStateChanged(auth, async (user) => {
   const adminFromSession = getCurrentAdmin();
@@ -220,7 +208,7 @@ async function loadArchive() {
   } catch (err) {
     console.error("loadArchive error:", err);
     if (archiveBody) {
-      archiveBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Failed to load archive: ${err.message}<\/td><\/tr>`;
+      archiveBody.innerHTML = `<tr><后台<td colspan="8" class="empty-row" style="color:red;">Failed to load archive: ${err.message}<\/td><\/tr>`;
     }
     showToast("Failed to load archive", "error");
   }
@@ -294,13 +282,13 @@ function buildRow(r) {
 
   return `
     <tr data-id="${r.id}">
-      <td>${escapeHtml(r.idNumber || r.userId || "—")}<\/td>
-      <td>${escapeHtml(r.fullname || "—")}<\/td>
-      <td>${escapeHtml(r.event || "—")}<\/td>
-      <td>${escapeHtml(r.venue || "—")}<\/td>
-      <td>${formatDate(r.date)}<\/td>
-      <td><span class="archive-badge ${badgeClass}">${r.displayStatus || "—"}</span><\/td>
-      <td>${formatTimestamp(r.archivedAt)}<\/td>
+      <td>${escapeHtml(r.idNumber || r.userId || "—")}</td>
+      <td>${escapeHtml(r.fullname || "—")}</td>
+      <td>${escapeHtml(r.event || "—")}</td>
+      <td>${escapeHtml(r.venue || "—")}</td>
+      <td>${formatDate(r.date)}</td>
+      <td><span class="archive-badge ${badgeClass}">${r.displayStatus || "—"}</span></td>
+      <td>${formatTimestamp(r.archivedAt)}</td>
       <td>
         <div class="archive-actions">
           <button class="archive-action-btn archive-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
@@ -312,9 +300,9 @@ function buildRow(r) {
           <button class="archive-action-btn archive-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete Permanently">
             <i class="fa-regular fa-trash-can"></i><span>Delete</span>
           </button>
-        <\/div>
-      <\/td>
-    <\/tr>
+        </div>
+      </td>
+    </tr>
   `;
 }
 
@@ -340,7 +328,6 @@ function attachRowListeners() {
 function openViewModal(r) {
   if (!viewModalDetails) return;
   
-  // Show skeleton in modal
   viewModalDetails.innerHTML = `
     <div class="skeleton-modal-details">
       <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
@@ -351,36 +338,35 @@ function openViewModal(r) {
   `;
   viewModal.classList.remove("hidden");
   
-  // Populate after short delay
   setTimeout(() => {
     let rescheduleHtml = '';
     if (r.displayStatus === "Rescheduled") {
       rescheduleHtml = `
         <div class="archive-detail-item full">
           <label>Reschedule Reason</label>
-          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}<\/span>
-        <\/div>
+          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
+        </div>
         <div class="archive-detail-item">
           <label>Rescheduled By</label>
-          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}<\/span>
-        <\/div>
+          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
+        </div>
       `;
     }
     
     viewModalDetails.innerHTML = `
       <div class="archive-detail-grid">
-        <div class="archive-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}<\/span><\/div>
-        <div class="archive-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}<\/span><\/div>
-        <div class="archive-detail-item"><label>Event<\/label><span>${escapeHtml(r.event || "—")}<\/span><\/div>
-        <div class="archive-detail-item"><label>Venue<\/label><span>${escapeHtml(r.venue || "—")}<\/span><\/div>
-        <div class="archive-detail-item"><label>Original Date<\/label><span>${formatDate(r.date)}<\/span><\/div>
-        <div class="archive-detail-item"><label>Time<\/label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}<\/span><\/div>
-        <div class="archive-detail-item"><label>Status<\/label><span>${r.displayStatus || "—"}<\/span><\/div>
-        <div class="archive-detail-item"><label>Items<\/label><span>${escapeHtml(r.item || "—")}<\/span><\/div>
-        <div class="archive-detail-item full"><label>Description<\/label><span>${escapeHtml(r.eventDescription || "—")}<\/span><\/div>
+        <div class="archive-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
+        <div class="archive-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
+        <div class="archive-detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
+        <div class="archive-detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
+        <div class="archive-detail-item"><label>Original Date</label><span>${formatDate(r.date)}</span></div>
+        <div class="archive-detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
+        <div class="archive-detail-item"><label>Status</label><span>${r.displayStatus || "—"}</span></div>
+        <div class="archive-detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
+        <div class="archive-detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
         ${rescheduleHtml}
-        <div class="archive-detail-item"><label>Archived Date<\/label><span>${formatTimestamp(r.archivedAt)}<\/span><\/div>
-      <\/div>
+        <div class="archive-detail-item"><label>Archived Date</label><span>${formatTimestamp(r.archivedAt)}</span></div>
+      </div>
     `;
   }, 200);
 }
@@ -413,7 +399,7 @@ function openConfirmModal(type, id, record) {
   if (cfg) {
     if (confirmIcon) confirmIcon.textContent = cfg.icon;
     if (confirmTitle) confirmTitle.textContent = cfg.title;
-    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}<\/strong><br>${cfg.msg}`;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}</strong><br>${cfg.msg}`;
   }
   
   confirmModal.classList.remove("hidden");
@@ -427,7 +413,7 @@ function closeConfirmModal() {
 if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
 if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
 
-// ── EXECUTE UN-ARCHIVE/DELETE ACTION ──────────────────────────
+// ── EXECUTE UN-ARCHIVE/DELETE ACTION (FIXED) ──────────────────────────
 if (confirmOk) {
   confirmOk.addEventListener("click", async () => {
     if (!pendingAction) {
@@ -438,18 +424,17 @@ if (confirmOk) {
     const { type, id, record } = pendingAction;
     console.log('Executing action:', type, 'for request:', id);
     
-    // Save original button text
-    const originalText = confirmOk.textContent;
+    closeConfirmModal();
     
-    // Show loading state
-    showButtonLoading(confirmOk, originalText);
+    confirmOk.disabled = true;
+    confirmOk.style.opacity = '0.7';
+    confirmOk.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px;"></span> Processing...';
     
     try {
       const requestRef = doc(db, COLLECTIONS.REQUESTS, id);
       
       if (type === "unarchive") {
         console.log('Un-archiving request...');
-        // Update the document to set archived = false
         await updateDoc(requestRef, { 
           archived: false,
           archivedAt: null
@@ -484,19 +469,15 @@ if (confirmOk) {
         showToast("Request permanently deleted", "success");
       }
       
-      // Close modal first
-      closeConfirmModal();
-      
-      // Reload the archive page to reflect changes
       await loadArchive();
       
     } catch (err) {
       console.error("Action error:", err);
       showToast("Operation failed: " + err.message, "error");
-      closeConfirmModal();
     } finally {
-      // Restore button state
-      restoreButton(confirmOk, originalText);
+      confirmOk.disabled = false;
+      confirmOk.style.opacity = '1';
+      confirmOk.innerHTML = 'Confirm';
     }
   });
 }

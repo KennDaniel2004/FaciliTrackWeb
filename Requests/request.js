@@ -3,11 +3,13 @@
    User/request.js
    ============================================= */
 
-import { db } from "../DatabaseConn/dbconn.js";
+import { db, COLLECTIONS } from "../DatabaseConn/dbconn.js";
 import {
   collection,
   doc,
+  setDoc,
   updateDoc,
+  addDoc,
   onSnapshot,
   serverTimestamp,
   query,
@@ -74,6 +76,11 @@ const sidebarOverlay = document.getElementById('sidebar-overlay');
 const dashLayout     = document.getElementById('dash-layout');
 let sidebarOpen      = window.innerWidth >= 768;
 
+const countPendingEl  = document.getElementById('countPending');
+const countApprovedEl = document.getElementById('countApproved');
+const countRejectedEl = document.getElementById('countRejected');
+const countFinishedEl = document.getElementById('countFinished');
+
 function setSidebar(open) {
   sidebarOpen = open;
   sidebar.classList.toggle('open', open);
@@ -90,6 +97,28 @@ window.addEventListener('resize', () => {
   if (window.innerWidth >= 768) sidebarOverlay.classList.remove('show');
 });
 setSidebar(sidebarOpen);
+
+function normalizeStatus(status) {
+  if (!status) return 'Pending';
+  const normalized = String(status).trim().toLowerCase();
+  if (normalized === 'approved') return 'Approved';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'finished') return 'Finished';
+  if (normalized === 'rescheduled') return 'Rescheduled';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function updateRequestStats() {
+  const pendingCount   = allRequests.filter(r => normalizeStatus(r.status) === 'Pending').length;
+  const approvedCount  = allRequests.filter(r => normalizeStatus(r.status) === 'Approved').length;
+  const rejectedCount  = allRequests.filter(r => normalizeStatus(r.status) === 'Rejected').length;
+  const finishedCount  = allRequests.filter(r => normalizeStatus(r.status) === 'Finished').length;
+
+  if (countPendingEl)  countPendingEl.textContent  = pendingCount;
+  if (countApprovedEl) countApprovedEl.textContent = approvedCount;
+  if (countRejectedEl) countRejectedEl.textContent = rejectedCount;
+  if (countFinishedEl) countFinishedEl.textContent = finishedCount;
+}
 
 /* ============================================================
    LOGOUT
@@ -258,7 +287,7 @@ function hidePageLoading() {
    FIRESTORE — Real-time listener on Requests
    ============================================================ */
 const reqQuery = query(
-  collection(db, 'requests'),
+  collection(db, COLLECTIONS.REQUESTS),
   orderBy('createdAt', 'desc')
 );
 
@@ -276,7 +305,7 @@ onSnapshot(reqQuery, (snapshot) => {
   isLoading = false;
   
   /* Badge: count only pending */
-  const pendingCount = allRequests.filter(r => (r.status || 'Pending') === 'Pending').length;
+  const pendingCount = allRequests.filter(r => normalizeStatus(r.status) === 'Pending').length;
   const badge = document.getElementById('requests-badge');
   if (pendingCount > 0) {
     badge.textContent    = pendingCount > 99 ? '99+' : pendingCount;
@@ -285,6 +314,7 @@ onSnapshot(reqQuery, (snapshot) => {
     badge.style.display  = 'none';
   }
   
+  updateRequestStats();
   applySearch();
 }, err => {
   console.error('Firestore listener error:', err);
@@ -317,7 +347,7 @@ function applySearch() {
 }
 
 /* ============================================================
-   RENDER TABLE with loading states
+   RENDER TABLE with Date column instead of ID Number
    ============================================================ */
 function renderTable(requests) {
   const tbody = document.getElementById('req-tbody');
@@ -341,7 +371,7 @@ function renderTable(requests) {
     tr.innerHTML = `
       <td>${escHtml(req.userId || req.id)}</td>
       <td>${escHtml(fullname)}</td>
-      <td>${escHtml(req.idNumber || '—')}</td>
+      <td>${escHtml(createdAt)}</td>
       <td>${escHtml(req.event || '—')}</td>
       <td>${escHtml(req.venue || '—')}</td>
       <td>
@@ -557,9 +587,7 @@ document.getElementById('view-overlay').addEventListener('click', () => closeMod
 document.getElementById('confirm-overlay').addEventListener('click', () => closeModal('modal-confirm'));
 document.getElementById('confirm-cancel').addEventListener('click', () => closeModal('modal-confirm'));
 
-/* ============================================================
-   APPROVE BUTTON with loading state
-   ============================================================ */
+
 document.getElementById('btn-confirm-approve').addEventListener('click', async () => {
   const btn = document.getElementById('btn-confirm-approve');
   const originalText = showButtonLoading(btn);
@@ -602,7 +630,7 @@ let pendingReason = '';
 async function openConfirmWithDelay(action, reason = '') {
   pendingReason = reason;
   
-  // Show loading in confirm modal
+
   const confirmCard = document.querySelector('.req-confirm-card');
   if (confirmCard) {
     confirmCard.style.opacity = '0.5';
@@ -670,7 +698,7 @@ async function executeAction(docId, action, reason = '') {
   isActionInProgress = true;
   
   try {
-    const docRef = doc(db, 'requests', docId);
+    const docRef = doc(db, COLLECTIONS.REQUESTS, docId);
 
     if (action === 'approve') {
       await updateDoc(docRef, {
@@ -678,6 +706,22 @@ async function executeAction(docId, action, reason = '') {
         approvedAt: serverTimestamp(),
         approvedBy: sessionStorage.getItem('ft_admin_id') || 'admin',
       });
+      // Create a notification record for the user so mobile clients can pick it up
+      try {
+        const targetReq = allRequests.find(r => r.id === docId) || {};
+        const title = 'Request Approved';
+        const body = `Your request ${targetReq.requestId || docId} has been approved.`;
+        const notificationId = await createNotificationForRequest(targetReq.userId || targetReq.idNumber || '', title, body, {
+          type: 'request_update',
+          requestId: docId,
+          status: 'Approved'
+        });
+        if (notificationId) {
+          await updateDoc(docRef, { notificationId });
+        }
+      } catch (err) {
+        console.error('Notification create error (approve):', err);
+      }
     } else if (action === 'reject') {
       await updateDoc(docRef, {
         status:         'Rejected',
@@ -685,6 +729,23 @@ async function executeAction(docId, action, reason = '') {
         rejectedBy:     sessionStorage.getItem('ft_admin_id') || 'admin',
         rejectedReason: reason,
       });
+      // Notify user of rejection
+      try {
+        const targetReq = allRequests.find(r => r.id === docId) || {};
+        const title = 'Request Rejected';
+        const body = `Your request ${targetReq.requestId || docId} has been rejected. Reason: ${reason || 'Not provided'}`;
+        const notificationId = await createNotificationForRequest(targetReq.userId || targetReq.idNumber || '', title, body, {
+          type: 'request_update',
+          requestId: docId,
+          status: 'Rejected',
+          rejectedReason: reason || ''
+        });
+        if (notificationId) {
+          await updateDoc(docRef, { notificationId });
+        }
+      } catch (err) {
+        console.error('Notification create error (reject):', err);
+      }
     }
     // Show success feedback (optional)
     showToastMessage(`Request ${action === 'approve' ? 'approved' : 'rejected'} successfully!`, 'success');
@@ -755,6 +816,54 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
+
+/* ============================================================
+   NOTIFICATIONS — write notification documents so mobile apps can listen
+   ============================================================ */
+async function createNotificationForRequest(userId, title, body, extra = {}) {
+  try {
+    if (!userId) {
+      console.warn('createNotificationForRequest: missing userId, skipping');
+      // Still write a global notification for audits
+    }
+
+    const payload = Object.assign({
+      userId: userId || null,
+      title: title || 'Update',
+      body: body || '',
+      read: false,
+      createdAt: serverTimestamp(),
+    }, extra || {});
+
+    // Primary: store in a root-level `Notification` collection with an explicit ID
+    const notificationRef = doc(collection(db, COLLECTIONS.NOTIFICATION));
+    const notificationId = notificationRef.id;
+    const notificationPayload = Object.assign({}, payload, {
+      notificationId,
+      requestId: extra?.requestId || null,
+      status: extra?.status || null,
+      rejectedReason: extra?.rejectedReason || null,
+    });
+
+    console.debug('Creating Notification document', notificationPayload);
+    await setDoc(notificationRef, notificationPayload);
+    console.debug('Notification written to root collection', notificationId);
+
+    // Secondary: store under the user document if available. This matches Registered_User documents in your database.
+    if (userId) {
+      try {
+        await addDoc(collection(db, COLLECTIONS.REGISTERED_USERS, userId, 'Notification'), notificationPayload);
+        console.debug('Notification also stored under Registered_User', userId);
+      } catch (err) {
+        console.debug('per-user notification write failed', err);
+      }
+    }
+
+    return notificationId;
+  } catch (err) {
+    console.error('createNotificationForRequest error:', err);
+  }
+}
 
 
 function escHtml(str) {

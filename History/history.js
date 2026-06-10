@@ -1,5 +1,5 @@
 // ============================================================
-// history.js  —  FaciliTrack History Page (FULLY FIXED - ARCHIVE WORKING)
+// history.js  —  FaciliTrack History Page (FULLY FIXED)
 // ============================================================
 import {
   db,
@@ -16,8 +16,10 @@ import {
   deleteDoc,
   query,
   where,
-  onAuthStateChanged
+  onAuthStateChanged,
+  signOut
 } from "../DatabaseConn/dbconn.js";
+import { initPendingRequestNotifications } from "../HomeDashboard/notification-panel.js";
 
 // ── State ────────────────────────────────────────────────────
 let allRequests = [];
@@ -70,6 +72,7 @@ const modalOverlay = document.getElementById("modal-overlay");
 const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
 const sidebarOverlay = document.getElementById("sidebar-overlay");
+const dashLayout = document.getElementById("dash-layout");
 const historyMenu = document.getElementById("historyMenu");
 const historySub = document.getElementById("historySub");
 const historyArrow = document.getElementById("historyArrow");
@@ -111,6 +114,10 @@ function updateSidebarActive() {
   });
   const historyLink = document.querySelector('.nav-child[href="history.html"]');
   if (historyLink) historyLink.classList.add('active');
+}
+
+if (typeof initPendingRequestNotifications === 'function') {
+  initPendingRequestNotifications();
 }
 
 function normalizeStatus(status) {
@@ -223,7 +230,7 @@ async function loadHistory() {
   } catch (err) {
     console.error("loadHistory error:", err);
     if (historyBody) {
-      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}<\/td><\/tr>`;
+      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}</td></tr>`;
     }
     showToast("Failed to load history", "error");
   }
@@ -354,6 +361,9 @@ function buildRow(r, tab) {
         <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
           <i class="fa-solid fa-eye"></i><span>View</span>
         </button>
+        <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
+          <i class="fa-regular fa-trash-can"></i><span>Delete</span>
+        </button>
       </div>
     `;
   } else {
@@ -374,15 +384,15 @@ function buildRow(r, tab) {
 
   return `
     <tr data-id="${r.id}">
-      <td>${escapeHtml(r.idNumber || r.userId || "—")}<\/td>
-      <td>${escapeHtml(r.fullname || "—")}<\/td>
-      <td>${escapeHtml(r.event || "—")}<\/td>
-      <td>${escapeHtml(r.venue || "—")}<\/td>
-      <td>${formatDate(r.date)}<\/td>
-      <td><span class="history-badge ${badgeClass}">${r.displayStatus}<\/span><\/td>
-      <td>${getRelevantTimestamp(r)}<\/td>
-      <td>${actionsHtml}<\/td>
-    <\/tr>
+      <td>${escapeHtml(r.idNumber || r.userId || "—")}</td>
+      <td>${escapeHtml(r.fullname || "—")}</td>
+      <td>${escapeHtml(r.event || "—")}</td>
+      <td>${escapeHtml(r.venue || "—")}</td>
+      <td>${formatDate(r.date)}</td>
+      <td><span class="history-badge ${badgeClass}">${r.displayStatus}</span></td>
+      <td>${getRelevantTimestamp(r)}</td>
+      <td>${actionsHtml}</td>
+    </tr>
   `;
 }
 
@@ -429,29 +439,29 @@ function openViewModal(r) {
       rescheduleHtml = `
         <div class="history-detail-item full">
           <label>Reschedule Reason</label>
-          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}<\/span>
-        <\/div>
+          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
+        </div>
         <div class="history-detail-item">
           <label>Rescheduled By</label>
-          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}<\/span>
-        <\/div>
+          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
+        </div>
       `;
     }
     
     viewModalDetails.innerHTML = `
       <div class="history-detail-grid">
-        <div class="history-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}<\/span><\/div>
-        <div class="history-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}<\/span><\/div>
-        <div class="history-detail-item"><label>Event<\/label><span>${escapeHtml(r.event || "—")}<\/span><\/div>
-        <div class="history-detail-item"><label>Venue<\/label><span>${escapeHtml(r.venue || "—")}<\/span><\/div>
-        <div class="history-detail-item"><label>Date<\/label><span>${formatDate(r.date)}<\/span><\/div>
-        <div class="history-detail-item"><label>Time<\/label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}<\/span><\/div>
-        <div class="history-detail-item"><label>Status<\/label><span>${r.displayStatus || "—"}<\/span><\/div>
-        <div class="history-detail-item"><label>Items<\/label><span>${escapeHtml(r.item || "—")}<\/span><\/div>
-        <div class="history-detail-item full"><label>Description<\/label><span>${escapeHtml(r.eventDescription || "—")}<\/span><\/div>
+        <div class="history-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
+        <div class="history-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
+        <div class="history-detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
+        <div class="history-detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
+        <div class="history-detail-item"><label>Date</label><span>${formatDate(r.date)}</span></div>
+        <div class="history-detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
+        <div class="history-detail-item"><label>Status</label><span>${r.displayStatus || "—"}</span></div>
+        <div class="history-detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
+        <div class="history-detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
         ${rescheduleHtml}
-        <div class="history-detail-item"><label>Created<\/label><span>${formatTimestamp(r.createdAt)}<\/span><\/div>
-      <\/div>
+        <div class="history-detail-item"><label>Created</label><span>${formatTimestamp(r.createdAt)}</span></div>
+      </div>
     `;
   }, 200);
 }
@@ -484,7 +494,7 @@ function openConfirmModal(type, id, record) {
   if (cfg) {
     if (confirmIcon) confirmIcon.textContent = cfg.icon;
     if (confirmTitle) confirmTitle.textContent = cfg.title;
-    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}<\/strong><br>${cfg.msg}`;
+    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}</strong><br>${cfg.msg}`;
   }
   
   confirmModal.classList.remove("hidden");
@@ -512,18 +522,16 @@ if (confirmOk) {
     // Close modal immediately
     closeConfirmModal();
     
-    // Show loading state on the confirm button
-    const originalText = confirmOk.textContent;
+    // Show loading state
     confirmOk.disabled = true;
     confirmOk.style.opacity = '0.7';
-    confirmOk.innerHTML = '<span class="skeleton-spinner"></span> Processing...';
+    confirmOk.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px;"></span> Processing...';
     
     try {
       const requestRef = doc(db, COLLECTIONS.REQUESTS, id);
       
       if (type === "archive") {
         console.log('Archiving request...');
-        // Update the document to set archived = true
         await updateDoc(requestRef, { 
           archived: true,
           archivedAt: new Date()
@@ -531,7 +539,6 @@ if (confirmOk) {
         
         console.log('Archive successful');
         
-        // Log the action
         await logAdminAction({
           actionType: "archive",
           requestId: record.requestId || id,
@@ -540,7 +547,7 @@ if (confirmOk) {
           details: `Archived request for ${record.fullname} — ${record.event}`
         });
         
-        showToast("Request archived successfully! It now appears in Archive page.", "success");
+        showToast("Request archived successfully!", "success");
       }
       
       if (type === "delete") {
@@ -559,36 +566,42 @@ if (confirmOk) {
         showToast("Request deleted permanently", "success");
       }
       
-      // Reload the history page to reflect changes
+      // Reload the history page
       await loadHistory();
       
     } catch (err) {
       console.error("Action error:", err);
       showToast("Operation failed: " + err.message, "error");
     } finally {
-      // Restore button state
       confirmOk.disabled = false;
       confirmOk.style.opacity = '1';
-      confirmOk.textContent = originalText;
+      confirmOk.innerHTML = 'Confirm';
     }
   });
 }
 
 // ── Sidebar Toggle ────────────────────────────────────────────
-if (hamburger) {
-  hamburger.addEventListener("click", () => {
-    sidebar.classList.toggle("open");
-    if (sidebarOverlay) sidebarOverlay.classList.toggle("show");
-    hamburger.classList.toggle("open");
-  });
+let sidebarOpen = window.innerWidth >= 768;
+
+function setSidebar(open) {
+  sidebarOpen = open;
+  if (!sidebar) return;
+
+  sidebar.classList.toggle('open', open);
+  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open && window.innerWidth < 768);
+  if (hamburger) hamburger.classList.toggle('open', open);
+  if (window.innerWidth >= 768) {
+    sidebar.classList.toggle('force-closed', !open);
+    if (dashLayout) dashLayout.classList.toggle('sidebar-closed', !open);
+  }
 }
-if (sidebarOverlay) {
-  sidebarOverlay.addEventListener("click", () => {
-    sidebar.classList.remove("open");
-    sidebarOverlay.classList.remove("show");
-    hamburger.classList.remove("open");
-  });
-}
+
+if (hamburger) hamburger.addEventListener("click", () => setSidebar(!sidebarOpen));
+if (sidebarOverlay) sidebarOverlay.addEventListener("click", () => setSidebar(false));
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 768 && sidebarOverlay) sidebarOverlay.classList.remove('show');
+});
+setSidebar(sidebarOpen);
 
 // History submenu toggle
 if (historyArrow) {
@@ -631,7 +644,8 @@ if (modalCancel) {
   });
 }
 if (modalConfirm) {
-  modalConfirm.addEventListener("click", () => {
+  modalConfirm.addEventListener("click", async () => {
+    await signOut(auth);
     sessionStorage.clear();
     window.location.href = "../Auth/auth.login.html";
   });

@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /Registered_Admin/{docId} {
+      allow create, read, update: if true;
+      allow delete: if false;
+    }
+
+    match /Registered_User/{docId} {
+      allow create, read, update: if true;
+      allow delete: if false;
+    }
+
+    match /RegisteredUsers/{docId} {
+      allow create, read, update: if true;
+      allow delete: if false;
+    }
+
+    match /requests/{docId} {
+      allow read, create, update: if true;
+      allow delete: if false;
+    }
+
+    match /Admin_Logs/{docId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    match /Password_Reset_Codes/{docId} {
+      allow create, read, update: if true;
+      allow delete: if false;
+    }
+
+    match /One_Time_Passcode/{docId} {
+      allow create, read: if true;
+      allow update, delete: if false;
+    }
+
+    match /Notification/{docId} {
+      allow create, read, update: if true;
+      allow delete: if false;
+    }
+
+    match /Registered_User/{userId}/Notification/{notificationId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

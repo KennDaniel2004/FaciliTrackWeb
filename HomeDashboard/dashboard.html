@@ -9,7 +9,6 @@
 <body>
 
   <!-- Topbar Header -->
-
   <header class="topbar">
     <div class="topbar-left">
       <button class="hamburger" id="hamburger" aria-label="Toggle sidebar">
@@ -21,6 +20,25 @@
       </div>
     </div>
     <div class="topbar-right">
+      <!-- NOTIFICATION BELL ICON -->
+      <div class="notification-bell-wrapper" id="notification-bell-wrapper">
+        <button class="topbar-action-btn notification-bell" id="notification-bell" type="button" title="Notification">
+          <span class="action-icon">🔔</span>
+          <span class="notification-dot" id="notification-dot" style="display: none;"></span>
+          <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+        </button>
+        
+        <!-- Notification Dropdown -->
+        <div class="notification-dropdown" id="notification-dropdown">
+          <div class="notification-header">
+            <h3>Notification</h3>
+          </div>
+          <div class="notification-list" id="notification-list">
+            <div class="notification-loading">Loading notifications...</div>
+          </div>
+        </div>
+      </div>
+
       <button class="topbar-action-btn" id="topbar-expand" type="button" title="Fullscreen">
         <span class="action-icon">⛶</span>
       </button>
@@ -34,13 +52,10 @@
     </div>
   </header>
 
-  
+  <!-- Dashboard Layout -->
   <div class="dash-layout" id="dash-layout">
-
     <!-- SIDEBAR -->
     <nav class="sidebar" id="sidebar">
-      
-      <!-- SCHEDULE SECTION WITH ARROW ICON (NO STROKE) -->
       <a href="#" class="nav-item nav-parent" data-panel="panel-schedule">
         <div class="nav-icon-label">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -52,9 +67,7 @@
           Schedule
         </div>
         <span class="nav-arrow-icon">
-          <img src="https://cdn-icons-png.flaticon.com/512/130/130882.png" 
-               alt="toggle" 
-               class="schedule-arrow">
+          <img src="https://cdn-icons-png.flaticon.com/512/130/130882.png" alt="toggle" class="schedule-arrow">
         </span>
       </a>
       <div class="nav-submenu">
@@ -66,8 +79,6 @@
           Legal Holiday
         </a>
       </div>
-
-      <!-- REQUESTS -->
       <a href="../Requests/request.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
@@ -79,8 +90,6 @@
         Requests
         <span class="nav-badge" id="requests-badge" style="display:none;">0</span>
       </a>
-
-      <!-- USER'S -->
       <a href="../User/user.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -90,31 +99,25 @@
         </svg>
         User's
       </a>
-
-      <!-- CHANGE STATS -->
       <a href="../ChangeStats/change.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
         </svg>
         Change Stats
       </a>
-
-     <!-- Change this line in sidebar -->
-<a href="../History/history.html" class="nav-item">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-    <polyline points="12 8 12 12 14 14"/>
-    <path d="M3.05 11a9 9 0 1 0 .5-4.5"/>
-    <polyline points="3 3 3 8 8 8"/>
-  </svg>
-  History
-</a>
-
-      <!-- MONITORING -->
+      <a href="../History/history.html" class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="12 8 12 12 14 14"/>
+          <path d="M3.05 11a9 9 0 1 0 .5-4.5"/>
+          <polyline points="3 3 3 8 8 8"/>
+        </svg>
+        History
+      </a>
       <a href="../Monitoring/monitoring.html" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2"/>
           <line x1="8" y1="21" x2="16" y2="21"/>
-          <line x1="12" y1="17" x2="12" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="17"/>
         </svg>
         Monitoring
       </a>
@@ -124,12 +127,9 @@
 
     <!-- MAIN CONTENT -->
     <main class="dash-main" id="dash-main">
-
-      <!-- ===== SCHEDULE PANEL ===== -->
+      <!-- Schedule Panel -->
       <div id="panel-schedule" class="panel">
         <div class="schedule-wrapper">
-
-          <!-- Calendar Toolbar -->
           <div class="cal-toolbar">
             <div class="cal-toolbar-left">
               <span class="cal-label" id="cal-date-label">Date</span>
@@ -150,11 +150,7 @@
               </div>
             </div>
           </div>
-
-          <!-- Month/Year Header -->
           <div class="cal-month-header" id="cal-month-header"></div>
-
-          <!-- Calendar Grid -->
           <div class="cal-grid-header">
             <div>Sun</div><div>Mon</div><div>Tue</div>
             <div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
@@ -163,7 +159,7 @@
         </div>
       </div>
 
-      <!-- ===== LEGAL HOLIDAY PANEL ===== -->
+      <!-- Legal Holiday Panel -->
       <div id="panel-legalholiday" class="panel hidden">
         <div class="inner-page">
           <h1 class="page-title">Legal Holiday</h1>
@@ -251,7 +247,7 @@
         </div>
       </div>
 
-      <!-- ===== CHANGE STATS PANEL ===== -->
+      <!-- Change Stats Panel -->
       <div id="panel-changestats" class="panel hidden">
         <div class="inner-page">
           <h1 class="page-title">Change Stats</h1>
@@ -259,7 +255,7 @@
         </div>
       </div>
 
-      <!-- ===== HISTORY PANEL ===== -->
+      <!-- History Panel -->
       <div id="panel-history" class="panel hidden">
         <div class="inner-page">
           <h1 class="page-title">History</h1>
@@ -267,18 +263,17 @@
         </div>
       </div>
 
-      <!-- ===== MONITORING PANEL ===== -->
+      <!-- Monitoring Panel -->
       <div id="panel-monitoring" class="panel hidden">
         <div class="inner-page">
           <h1 class="page-title">Monitoring</h1>
           <p class="page-placeholder">Monitoring panel — coming soon.</p>
         </div>
       </div>
-
     </main>
   </div>
 
-  <!-- ===== EVENT INFO POPUP ===== -->
+  <!-- Event Popup -->
   <div id="event-popup" class="event-popup hidden">
     <div class="event-popup__header">
       <span>Events Information</span>
@@ -288,7 +283,7 @@
   </div>
   <div id="event-popup-overlay" class="event-popup-overlay hidden"></div>
 
-  <!-- ===== LOGOUT MODAL ===== -->
+  <!-- Logout Modal -->
   <div id="logout-modal" class="modal hidden">
     <div class="modal-overlay" id="modal-overlay"></div>
     <div class="modal-container">

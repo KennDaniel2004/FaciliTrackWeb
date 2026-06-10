@@ -786,3 +786,149 @@
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
+
+
+
+
+
+/* ============================================================
+   DOCUMENT GENERATION MODAL STYLES
+   ============================================================ */
+
+.cs-doc-gen-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-doc-gen-modal.hidden {
+  display: none;
+}
+
+.cs-doc-gen-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.cs-doc-gen-container {
+  position: relative;
+  z-index: 1;
+  background: var(--white);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  animation: panelIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  border: 1px solid var(--gray-border);
+  overflow: hidden;
+}
+
+.cs-doc-gen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: var(--blue-main);
+  color: #fff;
+}
+
+.cs-doc-gen-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+
+.cs-doc-gen-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.cs-doc-gen-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cs-doc-gen-body {
+  padding: 28px 24px;
+}
+
+.cs-doc-gen-desc {
+  color: var(--text-mid);
+  font-size: 14px;
+  margin-bottom: 24px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.cs-doc-gen-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cs-doc-gen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 28px;
+  border: none;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cs-doc-gen-btn--word {
+  background: #185ABD;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(24, 90, 189, 0.3);
+}
+
+.cs-doc-gen-btn--word:hover {
+  background: #0e4a9e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(24, 90, 189, 0.4);
+}
+
+.cs-doc-gen-btn--word:active {
+  transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .cs-doc-gen-container {
+    width: 95%;
+  }
+  
+  .cs-doc-gen-header {
+    padding: 14px 20px;
+  }
+  
+  .cs-doc-gen-title {
+    font-size: 16px;
+  }
+  
+  .cs-doc-gen-body {
+    padding: 20px 16px;
+  }
+  
+  .cs-doc-gen-btn {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
