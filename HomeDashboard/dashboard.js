@@ -299,11 +299,31 @@ onSnapshot(requestsQuery, (snapshot) => {
     let eventDate = null;
     
     if (data.date) {
-      if (typeof data.date === 'string') {
-        dateStr = data.date.substring(0, 10);
-        eventDate = new Date(dateStr);
-      } else if (data.date.toDate) {
+      if (data.date.toDate) {
+        // Firestore Timestamp
         eventDate = data.date.toDate();
+        dateStr = `${eventDate.getFullYear()}-${String(eventDate.getMonth()+1).padStart(2,'0')}-${String(eventDate.getDate()).padStart(2,'0')}`;
+      } else if (typeof data.date === 'string') {
+        const raw = data.date.trim();
+        // Try ISO format first: "2026-06-24" or "2026-06-24T..."
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+          dateStr = raw.substring(0, 10);
+          // Parse as local date to avoid UTC offset shifting the day
+          const [y, m, d] = dateStr.split('-').map(Number);
+          eventDate = new Date(y, m - 1, d);
+        } else {
+          // Human-readable formats: "Jun 24, 2026" / "June 24, 2026" / "24 Jun 2026"
+          const parsed = new Date(raw);
+          if (!isNaN(parsed.getTime())) {
+            eventDate = parsed;
+            dateStr = `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
+          } else {
+            console.warn('[Calendar] Unrecognized date format, skipping:', raw);
+          }
+        }
+      } else if (typeof data.date === 'number') {
+        // Unix timestamp in milliseconds
+        eventDate = new Date(data.date);
         dateStr = `${eventDate.getFullYear()}-${String(eventDate.getMonth()+1).padStart(2,'0')}-${String(eventDate.getDate()).padStart(2,'0')}`;
       }
     }
