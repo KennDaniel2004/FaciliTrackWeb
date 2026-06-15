@@ -788,11 +788,9 @@
   }
 }
 
-/* ============================================================
-   SKELETAL LOADING STYLES
-   ============================================================ */
+/* Skeletal Loading */
 
-/* Skeleton base animation */
+
 @keyframes skeleton-pulse {
   0% {
     opacity: 1;
