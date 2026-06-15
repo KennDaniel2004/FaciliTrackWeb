@@ -302,7 +302,7 @@ export async function generateWordDocument(requestData) {
           // Requested by
           new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 30 },  children: [new TextRun({ text: 'Requested by:', bold: true })] }),
           new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 10 },  children: [new TextRun({ text: userName, bold: true, underline: { type: UnderlineType.SINGLE } })] }),
-          new Paragraph({ alignment: AlignmentType.RIGHT, spacing: { after: 100 }, children: [new TextRun({ text: userPos, size: 18 })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: userPos, size: 18 })] }),
 
           // Recommending Approval
           new Paragraph({ spacing: { after: 30 },  children: [new TextRun({ text: 'Recommending Approval:', bold: true })] }),
