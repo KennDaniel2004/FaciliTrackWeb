@@ -269,6 +269,17 @@ export async function generateWordDocument(requestData) {
           // Others
           new Paragraph({ spacing: { before: 60, after: 60 }, children: [new TextRun({ text: '☐   Others', bold: true })] }),
 
+
+          // new Paragraph({
+          //   spacing:  { after: 80 },
+          //   children: [
+          //     new TextRun({ text: 'Event Tittle:', bold: true }),
+          //     new TextRun({ text: ' ' }),
+          //     new TextRun({ text: purpose || '_________________________________________', underline: { type: UnderlineType.SINGLE } })
+          //   ]
+          // }),
+
+
           // Purpose
           new Paragraph({
             spacing:  { after: 80 },
@@ -295,13 +306,13 @@ export async function generateWordDocument(requestData) {
 
           // Recommending Approval
           new Paragraph({ spacing: { after: 30 },  children: [new TextRun({ text: 'Recommending Approval:', bold: true })] }),
-          new Paragraph({ spacing: { after: 10 },  children: [new TextRun({ text: 'CESARIO L. TORPOR', bold: true, underline: { type: UnderlineType.SINGLE } })] }),
-          new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: 'Supply Officer Designate', size: 18 })] }),
+          new Paragraph({ spacing: { after: 10 },  children: [new TextRun({ text: 'RIEJOHN M. PARANGAN', bold: true, underline: { type: UnderlineType.SINGLE } })] }),
+          new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: 'Supply Officer', size: 18 })] }),
 
           // Approved
           new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 60, after: 30 }, children: [new TextRun({ text: 'Approved:', bold: true })] }),
-          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 10 },  children: [new TextRun({ text: 'JOSE L. ARCAYA', bold: true, underline: { type: UnderlineType.SINGLE } })] }),
-          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Administrative Officer V', size: 18 })] })
+          new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 10 },  children: [new TextRun({ text: 'JOHNNY B. DOLOR, EDD', bold: true, underline: { type: UnderlineType.SINGLE } })] }),
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Campus C', size: 18 })] })
 
         ]
       }]
