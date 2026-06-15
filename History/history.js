@@ -16,6 +16,9 @@ import {
   deleteDoc,
   query,
   where,
+  serverTimestamp,
+  setDoc,
+  getDoc,
   onAuthStateChanged,
   signOut
 } from "../DatabaseConn/dbconn.js";
@@ -130,6 +133,44 @@ function normalizeStatus(status) {
   return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
 }
 
+// ── Finished Check Helper ─────────────────────────────────────
+function isFinished(dateStr, endTimeStr) {
+  if (!dateStr) return false;
+  try {
+    let year, month, day;
+    // Handle "August 15, 2026" long format
+    const longDateMatch = String(dateStr).match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
+    if (longDateMatch) {
+      const monthNames = ['january','february','march','april','may','june',
+                          'july','august','september','october','november','december'];
+      month = monthNames.indexOf(longDateMatch[1].toLowerCase()) + 1;
+      day   = parseInt(longDateMatch[2], 10);
+      year  = parseInt(longDateMatch[3], 10);
+    } else if (String(dateStr).includes('-')) {
+      // Handle "YYYY-MM-DD" format
+      [year, month, day] = String(dateStr).split('-').map(Number);
+    } else {
+      return false;
+    }
+    if (!year || !month || !day) return false;
+    let endHour = 23, endMin = 59;
+    if (endTimeStr) {
+      const clean = String(endTimeStr).trim().toUpperCase();
+      const match = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/);
+      if (match) {
+        let h = parseInt(match[1], 10);
+        const m = parseInt(match[2], 10);
+        const period = match[3];
+        if (period === 'PM' && h !== 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        endHour = h; endMin = m;
+      }
+    }
+    const eventEnd = new Date(year, month - 1, day, endHour, endMin, 0);
+    return new Date() > eventEnd;
+  } catch (_) { return false; }
+}
+
 // ── Update Counts Function ─────────────────────────────────────
 function updateCounts() {
   const approved = allRequests.filter(r => r.displayStatus === "Approved").length;
@@ -221,7 +262,74 @@ async function loadHistory() {
     });
 
     console.log('Loaded non-archived requests:', allRequests.length);
-    
+
+    // ── Auto-mark Approved requests as Finished & sync to completed_schedules ──
+    const finishPromises = [];
+    allRequests.forEach(r => {
+      if (r.displayStatus === 'Approved' && isFinished(r.date, r.endTime)) {
+        r.displayStatus = 'Finished';
+        r.status = 'Finished';
+
+        // Use the same document ID as the requests collection
+        const completedRef = doc(db, 'completed_schedules', r.id);
+
+        finishPromises.push(
+          (async () => {
+            try {
+              // 1. Update status in requests collection
+              await updateDoc(doc(db, COLLECTIONS.REQUESTS, r.id), {
+                status: 'Finished',
+                finishedAt: serverTimestamp()
+              });
+
+              // 2. Write full record to completed_schedules (same doc ID)
+              //    setDoc with merge:true so re-runs don't overwrite existing finishedAt
+              const alreadyExists = (await getDoc(completedRef)).exists();
+              if (!alreadyExists) {
+                await setDoc(completedRef, {
+                  ...r,
+                  status: 'Finished',
+                  finishedAt: serverTimestamp(),
+                  sourceRequestId: r.id,
+                  movedAt: serverTimestamp()
+                });
+                console.log(`✅ Copied to completed_schedules: ${r.id}`);
+              }
+            } catch (err) {
+              console.warn('Auto-finish failed for', r.id, err);
+            }
+          })()
+        );
+      }
+    });
+
+    // ── Also load already-finished records from completed_schedules ──
+    try {
+      const completedSnap = await getDocs(collection(db, 'completed_schedules'));
+      completedSnap.forEach(docSnap => {
+        // Avoid duplicates — only add if not already in allRequests
+        const alreadyIn = allRequests.some(r => r.id === docSnap.id);
+        if (!alreadyIn) {
+          const data = docSnap.data();
+          if (data.archived !== true) {
+            allRequests.push({
+              id: docSnap.id,
+              ...data,
+              displayStatus: 'Finished'
+            });
+          }
+        }
+      });
+      console.log('✅ Loaded completed_schedules into Finished tab');
+    } catch (err) {
+      console.warn('Could not load completed_schedules:', err);
+    }
+
+    if (finishPromises.length > 0) {
+      await Promise.all(finishPromises);
+      console.log(`✅ Auto-marked ${finishPromises.length} request(s) as Finished`);
+    }
+
     updateCounts();
     attachCardListeners();
     attachTabListeners();
@@ -354,15 +462,14 @@ function buildRow(r, tab) {
   }[r.displayStatus] || "";
 
   let actionsHtml = '';
-  
+
+  // Approved: only View (no Archive — it will auto-move to Finished once time passes)
+  // Finished + all others: View, Archive, Delete
   if (tab === 'approved') {
     actionsHtml = `
       <div class="history-actions">
         <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
           <i class="fa-solid fa-eye"></i><span>View</span>
-        </button>
-        <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
-          <i class="fa-regular fa-trash-can"></i><span>Delete</span>
         </button>
       </div>
     `;

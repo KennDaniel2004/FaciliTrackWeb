@@ -278,10 +278,8 @@ setInterval(updateClock, 1000);
 /* ============================================================
    FIRESTORE — Filter expired events
    ============================================================ */
-const requestsQuery = query(
-  collection(db, COLLECTIONS.REQUESTS),
-  where('status', 'in', ['Approved', 'approved'])
-);
+// Fetch all requests; filter approved in JS to catch all status variants
+const requestsQuery = collection(db, COLLECTIONS.REQUESTS);
 
 showSkeletonCalendar();
 
@@ -292,12 +290,34 @@ onSnapshot(requestsQuery, (snapshot) => {
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
 
+  console.log('[Calendar DEBUG] Total docs in snapshot:', snapshot.size);
+
   snapshot.forEach(docSnap => {
     const data = docSnap.data();
 
+    // ── DEBUG: Log every document so we can see exactly what Firestore returns
+    console.log('[Calendar DEBUG] Doc ID:', docSnap.id, {
+      status: data.status,
+      date: data.date,
+      event: data.event,
+      approvedAt: data.approvedAt,
+      approvedBy: data.approvedBy,
+    });
+
+    // ── Status check: accept 'Approved', 'approved', or docs with approvedAt/approvedBy
+    const rawStatus = (data.status || '').toLowerCase().trim();
+    const isApproved = rawStatus === 'approved'
+      || (!data.status && (data.approvedAt || data.approvedBy));
+
+    if (!isApproved) {
+      console.log('[Calendar DEBUG] SKIPPED (not approved):', docSnap.id, '| status:', data.status);
+      return;
+    }
+
+    // ── Robust date parsing ───────────────────────────────────────────────
     let dateStr = '';
     let eventDate = null;
-    
+
     if (data.date) {
       if (data.date.toDate) {
         // Firestore Timestamp
@@ -305,35 +325,37 @@ onSnapshot(requestsQuery, (snapshot) => {
         dateStr = `${eventDate.getFullYear()}-${String(eventDate.getMonth()+1).padStart(2,'0')}-${String(eventDate.getDate()).padStart(2,'0')}`;
       } else if (typeof data.date === 'string') {
         const raw = data.date.trim();
-        // Try ISO format first: "2026-06-24" or "2026-06-24T..."
         if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
           dateStr = raw.substring(0, 10);
-          // Parse as local date to avoid UTC offset shifting the day
           const [y, m, d] = dateStr.split('-').map(Number);
           eventDate = new Date(y, m - 1, d);
         } else {
-          // Human-readable formats: "Jun 24, 2026" / "June 24, 2026" / "24 Jun 2026"
           const parsed = new Date(raw);
           if (!isNaN(parsed.getTime())) {
             eventDate = parsed;
             dateStr = `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,'0')}-${String(parsed.getDate()).padStart(2,'0')}`;
           } else {
-            console.warn('[Calendar] Unrecognized date format, skipping:', raw);
+            console.warn('[Calendar DEBUG] SKIPPED (bad date format):', raw, '| Doc:', docSnap.id);
           }
         }
       } else if (typeof data.date === 'number') {
-        // Unix timestamp in milliseconds
         eventDate = new Date(data.date);
         dateStr = `${eventDate.getFullYear()}-${String(eventDate.getMonth()+1).padStart(2,'0')}-${String(eventDate.getDate()).padStart(2,'0')}`;
       }
     }
 
-    if (!dateStr) return;
-    
+    if (!dateStr) {
+      console.warn('[Calendar DEBUG] SKIPPED (no dateStr):', docSnap.id, '| raw date value:', data.date);
+      return;
+    }
+
     if (eventDate && eventDate < todayDate) {
+      console.log('[Calendar DEBUG] SKIPPED (expired):', docSnap.id, '| dateStr:', dateStr);
       expiredCount++;
       return;
     }
+
+    console.log('[Calendar DEBUG] ✅ ADDED to calendar:', docSnap.id, '| dateStr:', dateStr, '| event:', data.event);
 
     const eventTitle = data.event || data.title || data.eventTitle || 'Approved Request';
     const timeValue = data.startTime && data.endTime
@@ -480,8 +502,9 @@ function formatDateKey(date) {
 
 function getEventsForDateKey(dateKey) {
   const todayKey = formatDateKey(today);
+  // Don't show events for past dates
   if (dateKey < todayKey) return [];
-  
+
   return (approvedEvents[dateKey] || []).filter(ev => {
     if (!searchTerm) return true;
     return ev.title.toLowerCase().includes(searchTerm) ||
@@ -560,6 +583,7 @@ function renderMonthView() {
       cell.appendChild(label);
     }
 
+    // FIX: also render events that fall on other-month overflow cells
     if (dayEvents.length) {
       const evWrap = document.createElement('div');
       evWrap.className = 'cal-events';
