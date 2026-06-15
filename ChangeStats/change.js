@@ -423,7 +423,7 @@ async function init() {
     allRequests = [];
     snapshot.forEach(docSnap => {
       const data = { _docId: docSnap.id, ...docSnap.data() };
-      if (isFinished(data.date, data.endTime)) return;
+
 
       const uid = data.idNumber || data.userId || '';
       const user = userCache.get(uid);
