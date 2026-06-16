@@ -1,5 +1,5 @@
 // ============================================================
-// history.js  —  FaciliTrack History Page (FULLY FIXED)
+// history.js  —  FaciliTrack History Page (WITH AUTO-FINISH)
 // ============================================================
 import {
   db,
@@ -31,6 +31,7 @@ let pendingAction = null;
 let currentAdmin = null;
 let isLoading = true;
 let searchTerm = '';
+let autoFinishInterval = null; // For auto-check timer
 
 // ── DOM References ────────────────────────────────────────────
 const historyBody = document.getElementById("history-body");
@@ -133,27 +134,34 @@ function normalizeStatus(status) {
   return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
 }
 
-// ── Finished Check Helper ─────────────────────────────────────
-function isFinished(dateStr, endTimeStr) {
+// ── ENHANCED: Check if event is finished based on date and end time ──
+function isEventFinished(dateStr, endTimeStr) {
   if (!dateStr) return false;
+  
   try {
     let year, month, day;
-    // Handle "August 15, 2026" long format
+    
+    // Handle "Month Day, Year" format (e.g., "June 16, 2026")
     const longDateMatch = String(dateStr).match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
     if (longDateMatch) {
-      const monthNames = ['january','february','march','april','may','june',
-                          'july','august','september','october','november','december'];
+      const monthNames = ['january', 'february', 'march', 'april', 'may', 'june',
+                          'july', 'august', 'september', 'october', 'november', 'december'];
       month = monthNames.indexOf(longDateMatch[1].toLowerCase()) + 1;
-      day   = parseInt(longDateMatch[2], 10);
-      year  = parseInt(longDateMatch[3], 10);
-    } else if (String(dateStr).includes('-')) {
-      // Handle "YYYY-MM-DD" format
+      day = parseInt(longDateMatch[2], 10);
+      year = parseInt(longDateMatch[3], 10);
+    } 
+    // Handle "YYYY-MM-DD" format
+    else if (String(dateStr).includes('-')) {
       [year, month, day] = String(dateStr).split('-').map(Number);
-    } else {
+    } 
+    else {
       return false;
     }
+    
     if (!year || !month || !day) return false;
+    
     let endHour = 23, endMin = 59;
+    
     if (endTimeStr) {
       const clean = String(endTimeStr).trim().toUpperCase();
       const match = clean.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/);
@@ -163,12 +171,129 @@ function isFinished(dateStr, endTimeStr) {
         const period = match[3];
         if (period === 'PM' && h !== 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
-        endHour = h; endMin = m;
+        endHour = h;
+        endMin = m;
       }
     }
+    
     const eventEnd = new Date(year, month - 1, day, endHour, endMin, 0);
-    return new Date() > eventEnd;
-  } catch (_) { return false; }
+    const now = new Date();
+    
+    console.log(`Checking event: ${dateStr} ${endTimeStr} | Event end: ${eventEnd} | Now: ${now} | Is finished: ${now > eventEnd}`);
+    
+    return now > eventEnd;
+  } catch (error) {
+    console.error('Error checking event finish status:', error);
+    return false;
+  }
+}
+
+// ── NEW: Auto-update finished requests in database ──
+async function autoUpdateFinishedRequests() {
+  console.log('🔄 Auto-checking for finished requests...');
+  let updatedCount = 0;
+  
+  try {
+    // Get all requests that are Approved or Rescheduled (not yet finished)
+    const q = query(collection(db, COLLECTIONS.REQUESTS));
+    const snap = await getDocs(q);
+    
+    const toUpdate = [];
+    
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      
+      // Skip if already finished or archived
+      if (data.status === 'Finished' || data.archived === true) {
+        continue;
+      }
+      
+      // Only check Approved and Rescheduled requests
+      if (data.status === 'Approved' || data.status === 'Rescheduled') {
+        const endTime = data.endTime || data.endtime || data.end_time || data.timeEnd || data.timeend;
+        
+        if (isEventFinished(data.date, endTime)) {
+          toUpdate.push({
+            id: docSnap.id,
+            ...data
+          });
+        }
+      }
+    }
+    
+    if (toUpdate.length > 0) {
+      console.log(`Found ${toUpdate.length} finished request(s) to update`);
+      
+      // Update each finished request
+      for (const request of toUpdate) {
+        try {
+          const requestRef = doc(db, COLLECTIONS.REQUESTS, request.id);
+          
+          // Update status to Finished
+          await updateDoc(requestRef, {
+            status: 'Finished',
+            finishedAt: serverTimestamp(),
+            autoFinishedAt: new Date().toISOString()
+          });
+          
+          // Copy to completed_schedules
+          const completedRef = doc(db, 'completed_schedules', request.id);
+          await setDoc(completedRef, {
+            ...request,
+            status: 'Finished',
+            finishedAt: serverTimestamp(),
+            sourceRequestId: request.id,
+            movedAt: serverTimestamp(),
+            autoFinished: true
+          }, { merge: true });
+          
+          console.log(`✅ Auto-finished: ${request.fullname} - ${request.event}`);
+          updatedCount++;
+          
+        } catch (err) {
+          console.error(`Failed to update request ${request.id}:`, err);
+        }
+      }
+      
+      if (updatedCount > 0) {
+        showToast(`${updatedCount} request(s) automatically marked as Finished`, "success");
+        await loadHistory(); // Reload the page data
+      }
+    } else {
+      console.log('No finished requests found at this time');
+    }
+    
+  } catch (error) {
+    console.error('Error in auto-update check:', error);
+  }
+  
+  return updatedCount;
+}
+
+// Start automatic checking every minute
+function startAutoFinishChecker() {
+  if (autoFinishInterval) {
+    clearInterval(autoFinishInterval);
+  }
+  
+  // Run immediately on start
+  autoUpdateFinishedRequests();
+  
+  // Then run every 60 seconds
+  autoFinishInterval = setInterval(() => {
+    autoUpdateFinishedRequests();
+  }, 60000); // Check every minute
+  
+  console.log('✅ Auto-finish checker started (checks every 60 seconds)');
+}
+
+// Stop the auto checker
+function stopAutoFinishChecker() {
+  if (autoFinishInterval) {
+    clearInterval(autoFinishInterval);
+    autoFinishInterval = null;
+    console.log('🛑 Auto-finish checker stopped');
+  }
 }
 
 // ── Update Counts Function ─────────────────────────────────────
@@ -233,6 +358,9 @@ onAuthStateChanged(auth, async (user) => {
     if (adminAvatar) adminAvatar.textContent = initials;
   }
 
+  // Start the auto-finish checker
+  startAutoFinishChecker();
+  
   await loadHistory();
   updateSidebarActive();
 });
@@ -263,51 +391,10 @@ async function loadHistory() {
 
     console.log('Loaded non-archived requests:', allRequests.length);
 
-    // ── Auto-mark Approved requests as Finished & sync to completed_schedules ──
-    const finishPromises = [];
-    allRequests.forEach(r => {
-      if (r.displayStatus === 'Approved' && isFinished(r.date, r.endTime)) {
-        r.displayStatus = 'Finished';
-        r.status = 'Finished';
-
-        // Use the same document ID as the requests collection
-        const completedRef = doc(db, 'completed_schedules', r.id);
-
-        finishPromises.push(
-          (async () => {
-            try {
-              // 1. Update status in requests collection
-              await updateDoc(doc(db, COLLECTIONS.REQUESTS, r.id), {
-                status: 'Finished',
-                finishedAt: serverTimestamp()
-              });
-
-              // 2. Write full record to completed_schedules (same doc ID)
-              //    setDoc with merge:true so re-runs don't overwrite existing finishedAt
-              const alreadyExists = (await getDoc(completedRef)).exists();
-              if (!alreadyExists) {
-                await setDoc(completedRef, {
-                  ...r,
-                  status: 'Finished',
-                  finishedAt: serverTimestamp(),
-                  sourceRequestId: r.id,
-                  movedAt: serverTimestamp()
-                });
-                console.log(`✅ Copied to completed_schedules: ${r.id}`);
-              }
-            } catch (err) {
-              console.warn('Auto-finish failed for', r.id, err);
-            }
-          })()
-        );
-      }
-    });
-
-    // ── Also load already-finished records from completed_schedules ──
+    // Load completed_schedules for Finished tab
     try {
       const completedSnap = await getDocs(collection(db, 'completed_schedules'));
       completedSnap.forEach(docSnap => {
-        // Avoid duplicates — only add if not already in allRequests
         const alreadyIn = allRequests.some(r => r.id === docSnap.id);
         if (!alreadyIn) {
           const data = docSnap.data();
@@ -320,14 +407,9 @@ async function loadHistory() {
           }
         }
       });
-      console.log('✅ Loaded completed_schedules into Finished tab');
+      console.log('✅ Finished tab loaded from completed_schedules');
     } catch (err) {
       console.warn('Could not load completed_schedules:', err);
-    }
-
-    if (finishPromises.length > 0) {
-      await Promise.all(finishPromises);
-      console.log(`✅ Auto-marked ${finishPromises.length} request(s) as Finished`);
     }
 
     updateCounts();
@@ -463,7 +545,7 @@ function buildRow(r, tab) {
 
   let actionsHtml = '';
 
-  // Approved: only View (no Archive — it will auto-move to Finished once time passes)
+  // Approved: only View
   // Finished + all others: View, Archive, Delete
   if (tab === 'approved') {
     actionsHtml = `
@@ -615,7 +697,7 @@ function closeConfirmModal() {
 if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
 if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
 
-// ── EXECUTE ARCHIVE/DELETE ACTION (FIXED) ─────────────────────
+// ── EXECUTE ARCHIVE/DELETE ACTION ─────────────────────
 if (confirmOk) {
   confirmOk.addEventListener("click", async () => {
     if (!pendingAction) {
@@ -626,10 +708,8 @@ if (confirmOk) {
     const { type, id, record } = pendingAction;
     console.log('Executing action:', type, 'for request:', id, record.fullname);
     
-    // Close modal immediately
     closeConfirmModal();
     
-    // Show loading state
     confirmOk.disabled = true;
     confirmOk.style.opacity = '0.7';
     confirmOk.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px;"></span> Processing...';
@@ -673,7 +753,6 @@ if (confirmOk) {
         showToast("Request deleted permanently", "success");
       }
       
-      // Reload the history page
       await loadHistory();
       
     } catch (err) {
@@ -752,6 +831,8 @@ if (modalCancel) {
 }
 if (modalConfirm) {
   modalConfirm.addEventListener("click", async () => {
+    // Stop the auto-finish checker before logout
+    stopAutoFinishChecker();
     await signOut(auth);
     sessionStorage.clear();
     window.location.href = "../Auth/auth.login.html";
@@ -786,4 +867,9 @@ document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   });
 });
 
-console.log('History page initialized');
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+  stopAutoFinishChecker();
+});
+
+console.log('History page initialized with auto-finish feature');

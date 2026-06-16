@@ -1,144 +1,401 @@
-// ============================================================
-// history.js  —  FaciliTrack History Page (FULLY FIXED)
-// ============================================================
+/* =============================================
+   FaciliTrack – Change Stats Logic
+   ============================================= */
+
 import {
   db,
   auth,
   COLLECTIONS,
   getCurrentAdmin,
-  logAdminAction,
   formatTimestamp,
   formatDate,
   collection,
   doc,
   getDocs,
+  getDoc,
   updateDoc,
-  deleteDoc,
+  addDoc,
+  setDoc,
   query,
   where,
+  onSnapshot,
   serverTimestamp,
-  setDoc,
-  getDoc,
   onAuthStateChanged,
   signOut
 } from "../DatabaseConn/dbconn.js";
 import { initPendingRequestNotifications } from "../HomeDashboard/notification-panel.js";
+import { generateWordDocument } from './generateWordDocument.js';
 
-// ── State ────────────────────────────────────────────────────
-let allRequests = [];
-let currentTab = "approved";
-let pendingAction = null;
-let currentAdmin = null;
-let isLoading = true;
-let searchTerm = '';
+/* ============================================================
+   SIDEBAR & TOPBAR (Same as Dashboard)
+   ============================================================ */
+const hamburger = document.getElementById('hamburger');
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+const dashLayout = document.getElementById('dash-layout');
+const historyMenu = document.getElementById('historyMenu');
+const historySub = document.getElementById('historySub');
+const historyArrow = document.getElementById('historyArrow');
 
-// ── DOM References ────────────────────────────────────────────
-const historyBody = document.getElementById("history-body");
-const emptyDiv = document.getElementById("history-empty");
-const searchInput = document.getElementById("history-search");
+let sidebarOpen = window.innerWidth >= 768;
 
-// Count elements
-const countApprovedSpan = document.getElementById("countApproved");
-const countRejectSpan = document.getElementById("countReject");
-const countRescheduledSpan = document.getElementById("countRescheduled");
-const countFinishedSpan = document.getElementById("countFinished");
-
-// Topbar elements
-const adminFullName = document.getElementById("topbar-fullname");
-const adminAvatar = document.getElementById("topbar-avatar");
-const profileTrigger = document.getElementById("profile-trigger");
-const dropdownMenu = document.getElementById("dropdown-menu");
-const logoutBtn = document.getElementById("logout-btn");
-
-// View Modal
-const viewModal = document.getElementById("view-modal");
-const viewModalDetails = document.getElementById("view-modal-details");
-const viewModalBack = document.getElementById("view-modal-back");
-const viewModalOverlay = document.getElementById("view-modal-overlay");
-
-// Confirmation Modal
-const confirmModal = document.getElementById("confirm-modal");
-const confirmIcon = document.getElementById("confirm-icon");
-const confirmTitle = document.getElementById("confirm-title");
-const confirmMsg = document.getElementById("confirm-msg");
-const confirmCancel = document.getElementById("confirm-cancel");
-const confirmOk = document.getElementById("confirm-ok");
-const confirmOverlay = document.getElementById("confirm-modal-overlay");
-
-// Logout modal
-const logoutModal = document.getElementById("logout-modal");
-const modalCancel = document.getElementById("modal-cancel");
-const modalConfirm = document.getElementById("modal-confirm");
-const modalOverlay = document.getElementById("modal-overlay");
-
-// Sidebar elements
-const hamburger = document.getElementById("hamburger");
-const sidebar = document.getElementById("sidebar");
-const sidebarOverlay = document.getElementById("sidebar-overlay");
-const dashLayout = document.getElementById("dash-layout");
-const historyMenu = document.getElementById("historyMenu");
-const historySub = document.getElementById("historySub");
-const historyArrow = document.getElementById("historyArrow");
-
-// ── Helper Functions ──────────────────────────────────────────
-
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function setSidebar(open) {
+  if (!sidebar) return;
+  sidebarOpen = open;
+  sidebar.classList.toggle('open', open);
+  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open && window.innerWidth < 768);
+  if (hamburger) hamburger.classList.toggle('open', open);
+  if (window.innerWidth >= 768) {
+    sidebar.classList.toggle('force-closed', !open);
+    if (dashLayout) dashLayout.classList.toggle('sidebar-closed', !open);
+  }
 }
 
-function showToast(message, type = "success") {
-  const existingToast = document.querySelector('.history-toast');
+if (hamburger) {
+  hamburger.addEventListener('click', () => setSidebar(!sidebarOpen));
+}
+if (sidebarOverlay) {
+  sidebarOverlay.addEventListener('click', () => setSidebar(false));
+}
+window.addEventListener('resize', () => {
+  if (window.innerWidth >= 768 && sidebarOverlay) sidebarOverlay.classList.remove('show');
+});
+setSidebar(sidebarOpen);
+
+// History submenu toggle
+if (historyArrow) {
+  historyArrow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    historyMenu.classList.toggle('expanded');
+    historySub.classList.toggle('open');
+  });
+}
+if (historyMenu) {
+  historyMenu.addEventListener('click', (e) => {
+    if (e.target === historyArrow || (historyArrow && historyArrow.contains(e.target))) return;
+    historyMenu.classList.toggle('expanded');
+    historySub.classList.toggle('open');
+  });
+}
+if (historySub) historySub.classList.add('open');
+if (historyMenu) historyMenu.classList.add('expanded');
+
+/* ============================================================
+   TOPBAR PROFILE
+   ============================================================ */
+const adminFullName = document.getElementById('topbar-fullname');
+const adminAvatar = document.getElementById('topbar-avatar');
+const profileTrigger = document.getElementById('profile-trigger');
+const dropdownMenu = document.getElementById('dropdown-menu');
+
+const adminData = getCurrentAdmin();
+if (adminData) {
+  const displayName = adminData.fullName || adminData.username || 'Admin';
+  if (adminFullName) adminFullName.textContent = displayName;
+  const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  if (adminAvatar) adminAvatar.textContent = initials;
+}
+
+if (profileTrigger) {
+  profileTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownMenu?.classList.toggle('show');
+  });
+  document.addEventListener('click', () => {
+    dropdownMenu?.classList.remove('show');
+  });
+  initPendingRequestNotifications();
+}
+
+/* ============================================================
+   LOGOUT
+   ============================================================ */
+const logoutModal = document.getElementById('logout-modal');
+const modalCancel = document.getElementById('modal-cancel');
+const modalConfirm = document.getElementById('modal-confirm');
+const modalOverlay = document.getElementById('modal-overlay');
+
+document.getElementById('logout-btn')?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.remove('hidden');
+});
+modalCancel?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.add('hidden');
+});
+modalOverlay?.addEventListener('click', () => {
+  if (logoutModal) logoutModal.classList.add('hidden');
+});
+modalConfirm?.addEventListener('click', async () => {
+  await signOut(auth);
+  sessionStorage.clear();
+  window.location.href = '../Auth/auth.login.html';
+});
+
+/* ============================================================
+   FULLSCREEN TOGGLE
+   ============================================================ */
+const topbarExpand = document.getElementById('topbar-expand');
+if (topbarExpand) {
+  topbarExpand.addEventListener('click', async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  });
+}
+
+/* ============================================================
+   EYE TOGGLE HELPER
+   ============================================================ */
+function setupEyeToggle(eyeBtn, inputEl) {
+  if (!eyeBtn || !inputEl) return;
+  let isVisible = false;
+  eyeBtn.addEventListener('click', () => {
+    isVisible = !isVisible;
+    inputEl.type = isVisible ? 'text' : 'password';
+    eyeBtn.innerHTML = isVisible ? `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+        <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    ` : `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    `;
+  });
+}
+
+setupEyeToggle(document.getElementById('otl-eye'), document.getElementById('otl-password'));
+setupEyeToggle(document.getElementById('pcreg-eye1'), document.getElementById('pcreg-pass'));
+setupEyeToggle(document.getElementById('pcreg-eye2'), document.getElementById('pcreg-confirm'));
+setupEyeToggle(document.getElementById('pcentry-eye'), document.getElementById('pcentry-pass'));
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let allRequests = [];
+let searchTerm = '';
+let activeDocId = null;
+let activeData = null;
+let pendingDocId = null;
+let isLoading = true;
+let isActionInProgress = false;
+
+let otlDone = sessionStorage.getItem('ft_cs_otl_done') === 'true';
+let csAdminDocId = sessionStorage.getItem('ft_cs_admin_docid') || null;
+let csPasscode = sessionStorage.getItem('ft_cs_passcode') || null;
+
+/* ============================================================
+   SKELETON LOADING FUNCTIONS
+   ============================================================ */
+
+function showSkeletonTable() {
+  const tbody = document.getElementById('cs-tbody');
+  const emptyEl = document.getElementById('cs-empty');
+  if (emptyEl) emptyEl.classList.add('hidden');
+
+  if (tbody) {
+    tbody.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const tr = document.createElement('tr');
+      tr.className = 'skeleton-row';
+      tr.innerHTML = `
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-short"></div></td>
+        <td><div class="skeleton skeleton-cell-text"></div></td>
+        <td><div class="skeleton skeleton-cell-short"></div></td>
+        <td><div class="skeleton skeleton-cell-short" style="width: 40px;"></div></td>
+        <td>
+          <div class="skeleton-actions">
+            <div class="skeleton-icon"></div>
+            <div class="skeleton-icon"></div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+}
+
+function removeSkeletonTable() {
+  const skeletonRows = document.querySelectorAll('.skeleton-row');
+  skeletonRows.forEach(row => row.remove());
+}
+
+function showSkeletonDetail() {
+  const detailInfo = document.getElementById('detail-info');
+  if (detailInfo) {
+    detailInfo.innerHTML = `
+      <div class="skeleton-modal-details">
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value-full"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+        <div class="skeleton-detail-row">
+          <div class="skeleton skeleton-detail-label"></div>
+          <div class="skeleton skeleton-detail-value"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  const reasonInput = document.getElementById('reschedule-reason');
+  if (reasonInput) {
+    reasonInput.placeholder = 'Loading...';
+    reasonInput.disabled = true;
+  }
+
+  const btnReschedule = document.getElementById('btn-reschedule');
+  if (btnReschedule) {
+    btnReschedule.disabled = true;
+    btnReschedule.textContent = 'Loading...';
+  }
+}
+
+function showButtonLoading(button, text) {
+  if (!button) return;
+  button.disabled = true;
+  button.style.opacity = '0.7';
+  const originalContent = button.innerHTML;
+  button.innerHTML = '<span class="skeleton-spinner" style="width: 20px; height: 20px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> ' + text;
+  return originalContent;
+}
+
+function restoreButton(button, originalText, originalHTML = null) {
+  if (!button) return;
+  button.disabled = false;
+  button.style.opacity = '1';
+  if (originalHTML) {
+    button.innerHTML = originalHTML;
+  } else {
+    button.textContent = originalText;
+  }
+}
+
+function showToastMessage(message, type = 'success') {
+  const existingToast = document.querySelector('.cs-toast');
   if (existingToast) existingToast.remove();
-  
+
   const toast = document.createElement('div');
-  toast.className = `history-toast ${type}`;
-  toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${message}`;
+  toast.className = `cs-toast ${type}`;
+  toast.textContent = message;
   document.body.appendChild(toast);
-  
+
   setTimeout(() => {
     toast.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
 
-function updateSidebarActive() {
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.remove('active');
+/* ============================================================
+   DOCUMENT GENERATION MODAL
+   ============================================================ */
+const docGenModal = document.getElementById('doc-gen-modal');
+const docGenOverlay = document.getElementById('doc-gen-overlay');
+const docGenClose = document.getElementById('doc-gen-close');
+const generateWordBtn = document.getElementById('generate-word-btn');
+let currentDocGenRequest = null;
+
+function openDocumentGenerator(requestData) {
+  console.log('Opening document generator for:', requestData);
+  currentDocGenRequest = requestData;
+  if (docGenModal) {
+    docGenModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  } else {
+    console.error('Document generator modal not found');
+    showToastMessage('Document generator not available', 'error');
+  }
+}
+
+function closeDocumentGenerator() {
+  if (docGenModal) {
+    docGenModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    currentDocGenRequest = null;
+  }
+}
+
+if (docGenOverlay) {
+  docGenOverlay.addEventListener('click', closeDocumentGenerator);
+}
+if (docGenClose) {
+  docGenClose.addEventListener('click', closeDocumentGenerator);
+}
+if (generateWordBtn) {
+  generateWordBtn.addEventListener('click', () => {
+    if (currentDocGenRequest) {
+      generateWordDocument(currentDocGenRequest);
+      closeDocumentGenerator();
+    } else {
+      showToastMessage('No request data available', 'error');
+    }
   });
-  if (historyMenu) historyMenu.classList.add('active');
-  document.querySelectorAll('.nav-child').forEach(item => {
-    item.classList.remove('active');
-  });
-  const historyLink = document.querySelector('.nav-child[href="history.html"]');
-  if (historyLink) historyLink.classList.add('active');
 }
 
-if (typeof initPendingRequestNotifications === 'function') {
-  initPendingRequestNotifications();
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && docGenModal && !docGenModal.classList.contains('hidden')) {
+    closeDocumentGenerator();
+  }
+});
+
+/* ============================================================
+   USER CACHE
+   ============================================================ */
+const userCache = new Map();
+
+async function loadUserCache() {
+  try {
+    // NOTE: Remove the where('status','==','active') clause if your users
+    // don't have a status field, or it will return 0 results silently.
+    const snap = await getDocs(collection(db, COLLECTIONS.REGISTERED_USERS));
+    snap.forEach(d => {
+      const data = d.data();
+      const uid = data.UserID || d.id;
+      userCache.set(uid, {
+        firstName:  data.First_Name  || '',
+        middleName: data.Middle_Name || '',
+        lastName:   data.Last_Name   || '',
+        fullName:   data.fullName    || `${data.First_Name || ''} ${data.Middle_Name || ''} ${data.Last_Name || ''}`.trim(),
+        position:   data.Position    || 'Faculty',
+      });
+    });
+    console.log(`✅ User cache loaded — ${userCache.size} users`);
+  } catch (err) {
+    console.error('User cache load error:', err);
+  }
 }
 
-function normalizeStatus(status) {
-  if (!status) return 'Pending';
-  const statusLower = String(status).toLowerCase();
-  if (statusLower === 'approved') return 'Approved';
-  if (statusLower === 'rejected') return 'Rejected';
-  if (statusLower === 'finished') return 'Finished';
-  if (statusLower === 'rescheduled') return 'Rescheduled';
-  return statusLower.charAt(0).toUpperCase() + statusLower.slice(1);
-}
-
-// ── Finished Check Helper ─────────────────────────────────────
+/* ============================================================
+   DATE HELPER
+   ============================================================ */
 function isFinished(dateStr, endTimeStr) {
   if (!dateStr) return false;
   try {
     let year, month, day;
-    // Handle "August 15, 2026" long format
+
+    // Handle "August 15, 2026" format
     const longDateMatch = String(dateStr).match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/);
     if (longDateMatch) {
       const monthNames = ['january','february','march','april','may','june',
@@ -152,7 +409,9 @@ function isFinished(dateStr, endTimeStr) {
     } else {
       return false;
     }
+
     if (!year || !month || !day) return false;
+
     let endHour = 23, endMin = 59;
     if (endTimeStr) {
       const clean = String(endTimeStr).trim().toUpperCase();
@@ -171,622 +430,678 @@ function isFinished(dateStr, endTimeStr) {
   } catch (_) { return false; }
 }
 
-// ── Update Counts Function ─────────────────────────────────────
-function updateCounts() {
-  const approved = allRequests.filter(r => r.displayStatus === "Approved").length;
-  const rejected = allRequests.filter(r => r.displayStatus === "Rejected").length;
-  const rescheduled = allRequests.filter(r => r.displayStatus === "Rescheduled").length;
-  const finished = allRequests.filter(r => r.displayStatus === "Finished").length;
-  
-  if (countApprovedSpan) countApprovedSpan.textContent = approved;
-  if (countRejectSpan) countRejectSpan.textContent = rejected;
-  if (countRescheduledSpan) countRescheduledSpan.textContent = rescheduled;
-  if (countFinishedSpan) countFinishedSpan.textContent = finished;
-}
+/* ============================================================
+   FIRESTORE LISTENER
+   ============================================================ */
+async function init() {
+  showSkeletonTable();
+  await loadUserCache();
 
-// ── Skeleton Loading Functions ────────────────────────────────
-function showSkeletonLoading() {
-  if (historyBody) {
-    const skeletonRows = [];
-    for (let i = 0; i < 5; i++) {
-      skeletonRows.push(`
-        <tr class="skeleton-row">
-          <td><div class="skeleton-cell-text"></div></td>
-          <td><div class="skeleton-cell-text"></div></td>
-          <td><div class="skeleton-cell-text"></div></td>
-          <td><div class="skeleton-cell-short"></div></td>
-          <td><div class="skeleton-cell-short"></div></td>
-          <td><div class="skeleton-badge"></div></td>
-          <td><div class="skeleton-cell-text"></div></td>
-          <td><div class="skeleton-actions"><div class="skeleton-icon"></div></div></td>
-        </tr>
-      `);
-    }
-    historyBody.innerHTML = skeletonRows.join('');
-  }
-  
-  if (countApprovedSpan) countApprovedSpan.textContent = '--';
-  if (countRejectSpan) countRejectSpan.textContent = '--';
-  if (countRescheduledSpan) countRescheduledSpan.textContent = '--';
-  if (countFinishedSpan) countFinishedSpan.textContent = '--';
-}
+  const approvedQuery = query(collection(db, 'requests'), where('status', '==', 'Approved'));
 
-// ── Auth Check ─────────────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
-  const adminFromSession = getCurrentAdmin();
-  
-  if (!user && !adminFromSession) {
-    window.location.href = "../Auth/auth.login.html";
-    return;
-  }
-
-  currentAdmin = adminFromSession || {
-    id: user?.uid,
-    fullName: user?.displayName || "Admin",
-    username: user?.email?.split('@')[0] || "Admin"
-  };
-  
-  if (adminFullName) {
-    const displayName = currentAdmin.fullName || currentAdmin.username || "Admin";
-    adminFullName.textContent = displayName;
-    const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    if (adminAvatar) adminAvatar.textContent = initials;
-  }
-
-  await loadHistory();
-  updateSidebarActive();
-});
-
-// ── Load Requests from Firestore ─────────────────────────────
-async function loadHistory() {
-  console.log('Loading history...');
-  showSkeletonLoading();
-  
-  try {
-    const q = query(collection(db, COLLECTIONS.REQUESTS));
-    const snap = await getDocs(q);
-    
+  onSnapshot(approvedQuery, (snapshot) => {
     allRequests = [];
-    snap.forEach(docSnap => {
-      const data = docSnap.data();
-      
-      // Only show non-archived requests (archived !== true)
-      if (data.archived !== true) {
-        const normalizedStatus = normalizeStatus(data.status);
-        allRequests.push({ 
-          id: docSnap.id, 
-          ...data,
-          displayStatus: normalizedStatus
-        });
-      }
+    snapshot.forEach(docSnap => {
+      const data = { _docId: docSnap.id, ...docSnap.data() };
+
+
+      const uid = data.idNumber || data.userId || '';
+      const user = userCache.get(uid);
+      data._fullName  = user?.fullName    || data.fullname || '—';
+      data._position  = user?.position    || '—';
+      data._firstName = user?.firstName   || '';
+      data._middleName = user?.middleName || '';
+      data._lastName  = user?.lastName    || '';
+      allRequests.push(data);
     });
 
-    console.log('Loaded non-archived requests:', allRequests.length);
-
-    // ── Sync ALL Finished/expired Approved requests to completed_schedules ──
-    // First, get the set of doc IDs already in completed_schedules
-    let existingCompletedIds = new Set();
-    try {
-      const completedSnap = await getDocs(collection(db, 'completed_schedules'));
-      completedSnap.forEach(docSnap => existingCompletedIds.add(docSnap.id));
-    } catch (err) {
-      console.warn('Could not pre-load completed_schedules IDs:', err);
-    }
-
-    const syncPromises = [];
-    allRequests.forEach(r => {
-      const shouldBeFinished =
-        r.displayStatus === 'Finished' ||
-        (r.displayStatus === 'Approved' && isFinished(r.date, r.endTime));
-
-      if (shouldBeFinished) {
-        // Update local display
-        r.displayStatus = 'Finished';
-        r.status = 'Finished';
-
-        syncPromises.push(
-          (async () => {
-            try {
-              // 1. If it was still Approved in Firestore, mark it Finished
-              const rawStatus = (r.status || '').toLowerCase();
-              if (rawStatus !== 'finished') {
-                await updateDoc(doc(db, COLLECTIONS.REQUESTS, r.id), {
-                  status: 'Finished',
-                  finishedAt: serverTimestamp()
-                });
-              }
-
-              // 2. Copy to completed_schedules using same document ID (skip if already there)
-              if (!existingCompletedIds.has(r.id)) {
-                await setDoc(doc(db, 'completed_schedules', r.id), {
-                  ...r,
-                  status: 'Finished',
-                  finishedAt: r.finishedAt || serverTimestamp(),
-                  sourceRequestId: r.id,
-                  movedAt: serverTimestamp()
-                });
-                console.log('✅ Synced to completed_schedules:', r.id);
-              }
-            } catch (err) {
-              console.warn('Sync failed for', r.id, err);
-            }
-          })()
-        );
-      }
-    });
-
-    if (syncPromises.length > 0) {
-      await Promise.all(syncPromises);
-      console.log(`✅ Synced ${syncPromises.length} Finished record(s) to completed_schedules`);
-    }
-
-    // ── Load completed_schedules into Finished tab (catch any not in requests) ──
-    try {
-      const completedSnap = await getDocs(collection(db, 'completed_schedules'));
-      completedSnap.forEach(docSnap => {
-        const alreadyIn = allRequests.some(r => r.id === docSnap.id);
-        if (!alreadyIn) {
-          const data = docSnap.data();
-          if (data.archived !== true) {
-            allRequests.push({
-              id: docSnap.id,
-              ...data,
-              displayStatus: 'Finished'
-            });
-          }
-        }
-      });
-      console.log('✅ Finished tab loaded from completed_schedules');
-    } catch (err) {
-      console.warn('Could not load completed_schedules:', err);
-    }
-
-    updateCounts();
-    attachCardListeners();
-    attachTabListeners();
-    renderTab(currentTab);
-    
-  } catch (err) {
-    console.error("loadHistory error:", err);
-    if (historyBody) {
-      historyBody.innerHTML = `<tr><td colspan="8" class="empty-row" style="color:red;">Error loading data: ${err.message}</td></tr>`;
-    }
-    showToast("Failed to load history", "error");
-  }
-}
-
-// ── Search Function ───────────────────────────────────────────
-function applySearch() {
-  const term = searchInput?.value.toLowerCase() || '';
-  const filtered = term ? allRequests.filter(r => 
-    (r.fullname || '').toLowerCase().includes(term) ||
-    (r.event || '').toLowerCase().includes(term) ||
-    (r.venue || '').toLowerCase().includes(term) ||
-    (r.idNumber || r.userId || '').toLowerCase().includes(term)
-  ) : [...allRequests];
-  
-  renderTab(currentTab, filtered);
-}
-
-if (searchInput) {
-  searchInput.addEventListener('input', () => {
-    applySearch();
+    allRequests.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    removeSkeletonTable();
+    isLoading = false;
+    renderTable(filterRequests());
+  }, err => {
+    console.error('Firestore listener error:', err);
+    removeSkeletonTable();
+    isLoading = false;
+    showToastMessage('Failed to load requests: ' + err.message, 'error');
   });
 }
 
-// ── Attach Event Listeners ─────────────────────────────────────
-function attachTabListeners() {
-  const tabBtns = document.querySelectorAll(".history-tab-btn");
-  tabBtns.forEach(btn => {
-    btn.removeEventListener('click', btn._listener);
-    btn._listener = () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentTab = btn.dataset.tab;
-      applySearch();
-    };
-    btn.addEventListener('click', btn._listener);
-  });
+init();
+
+/* ============================================================
+   RENDER TABLE
+   ============================================================ */
+const tbody = document.getElementById('cs-tbody');
+const emptyEl = document.getElementById('cs-empty');
+const table = document.getElementById('cs-table');
+
+function filterRequests() {
+  // Always exclude requests whose event date+endTime has already passed
+  const active = allRequests.filter(r => !isFinished(r.date, r.endTime));
+
+  if (!searchTerm) return active;
+  return active.filter(r =>
+    (r.idNumber   || '').toLowerCase().includes(searchTerm) ||
+    (r._fullName  || '').toLowerCase().includes(searchTerm) ||
+    (r._position  || '').toLowerCase().includes(searchTerm) ||
+    (r.event      || '').toLowerCase().includes(searchTerm) ||
+    (r.venue      || '').toLowerCase().includes(searchTerm)
+  );
 }
 
-function attachCardListeners() {
-  const cardApproved = document.getElementById("cardApproved");
-  const cardReject = document.getElementById("cardReject");
-  const cardRescheduled = document.getElementById("cardRescheduled");
-  const cardFinished = document.getElementById("cardFinished");
-  
-  if (cardApproved) {
-    cardApproved.removeEventListener('click', cardApproved._listener);
-    cardApproved._listener = () => switchTab("approved");
-    cardApproved.addEventListener('click', cardApproved._listener);
-  }
-  if (cardReject) {
-    cardReject.removeEventListener('click', cardReject._listener);
-    cardReject._listener = () => switchTab("rejected");
-    cardReject.addEventListener('click', cardReject._listener);
-  }
-  if (cardRescheduled) {
-    cardRescheduled.removeEventListener('click', cardRescheduled._listener);
-    cardRescheduled._listener = () => switchTab("rescheduled");
-    cardRescheduled.addEventListener('click', cardRescheduled._listener);
-  }
-  if (cardFinished) {
-    cardFinished.removeEventListener('click', cardFinished._listener);
-    cardFinished._listener = () => switchTab("finished");
-    cardFinished.addEventListener('click', cardFinished._listener);
-  }
-}
+function renderTable(rows) {
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-function switchTab(tab) {
-  const btns = document.querySelectorAll(".history-tab-btn");
-  if (!btns.length) return;
-  const btn = Array.from(btns).find(b => b.dataset.tab === tab);
-  if (btn) {
-    btns.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentTab = tab;
-    applySearch();
-  }
-}
-
-// ── Render Tab ─────────────────────────────────────────────────
-const TAB_STATUS_MAP = {
-  finished: ["Finished"],
-  approved: ["Approved"],
-  rejected: ["Rejected"],
-  rescheduled: ["Rescheduled"]
-};
-
-function renderTab(tab, requests = allRequests) {
-  const targetStatuses = TAB_STATUS_MAP[tab];
-  if (!targetStatuses) return;
-  
-  const rows = requests.filter(r => targetStatuses.includes(r.displayStatus));
-  
-  if (!historyBody) return;
-  
   if (!rows.length) {
-    historyBody.innerHTML = '';
-    if (emptyDiv) emptyDiv.classList.remove('hidden');
+    if (table) table.style.display = 'none';
+    if (emptyEl) emptyEl.classList.remove('hidden');
     return;
   }
-  
-  if (emptyDiv) emptyDiv.classList.add('hidden');
-  historyBody.innerHTML = rows.map(r => buildRow(r, tab)).join("");
-  attachRowListeners();
-}
 
-function getRelevantTimestamp(r) {
-  if (r.displayStatus === "Approved") return formatTimestamp(r.approvedAt);
-  if (r.displayStatus === "Rejected") return formatTimestamp(r.rejectedAt);
-  if (r.displayStatus === "Rescheduled") return formatTimestamp(r.rescheduledAt);
-  if (r.displayStatus === "Finished") return formatTimestamp(r.finishedAt || r.approvedAt);
-  return formatTimestamp(r.createdAt);
-}
+  if (table) table.style.display = '';
+  if (emptyEl) emptyEl.classList.add('hidden');
 
-function buildRow(r, tab) {
-  const badgeClass = {
-    Approved: "history-badge--approved",
-    Finished: "history-badge--finished",
-    Rejected: "history-badge--rejected",
-    Rescheduled: "history-badge--rescheduled"
-  }[r.displayStatus] || "";
-
-  let actionsHtml = '';
-
-  // Approved: only View (no Archive — it will auto-move to Finished once time passes)
-  // Finished + all others: View, Archive, Delete
-  if (tab === 'approved') {
-    actionsHtml = `
-      <div class="history-actions">
-        <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
-          <i class="fa-solid fa-eye"></i><span>View</span>
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(r.idNumber || r.userId || '—')}</td>
+      <td>${escapeHtml(r._fullName)}</td>
+      <td>${escapeHtml(r._position)}</td>
+      <td>${escapeHtml(r.event || '—')}</td>
+      <td>${escapeHtml(r.venue || '—')}</td>
+      <td><span class="cs-status-badge">Approved</span></td>
+      <td class="cs-action-cell">
+        <button class="cs-action-btn cs-action-btn--edit" data-id="${r._docId}" title="Reschedule">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
         </button>
-      </div>
+        <button class="cs-action-btn cs-action-btn--doc" data-id="${r._docId}" title="Generate Document">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        </button>
+      </td>
     `;
-  } else {
-    actionsHtml = `
-      <div class="history-actions">
-        <button class="history-action-btn history-action-btn--view" data-action="view" data-id="${r.id}" title="View Details">
-          <i class="fa-solid fa-eye"></i><span>View</span>
-        </button>
-        <button class="history-action-btn history-action-btn--archive" data-action="archive" data-id="${r.id}" title="Archive">
-          <i class="fa-solid fa-box-archive"></i><span>Archive</span>
-        </button>
-        <button class="history-action-btn history-action-btn--delete" data-action="delete" data-id="${r.id}" title="Delete">
-          <i class="fa-regular fa-trash-can"></i><span>Delete</span>
-        </button>
-      </div>
-    `;
-  }
+    tbody.appendChild(tr);
+  });
 
-  return `
-    <tr data-id="${r.id}">
-      <td>${escapeHtml(r.idNumber || r.userId || "—")}</td>
-      <td>${escapeHtml(r.fullname || "—")}</td>
-      <td>${escapeHtml(r.event || "—")}</td>
-      <td>${escapeHtml(r.venue || "—")}</td>
-      <td>${formatDate(r.date)}</td>
-      <td><span class="history-badge ${badgeClass}">${r.displayStatus}</span></td>
-      <td>${getRelevantTimestamp(r)}</td>
-      <td>${actionsHtml}</td>
-    </tr>
-  `;
-}
-
-function attachRowListeners() {
-  if (!historyBody) return;
-  historyBody.querySelectorAll(".history-action-btn").forEach(btn => {
-    btn.removeEventListener('click', btn._listener);
-    btn._listener = (e) => {
+  // Reschedule button
+  tbody.querySelectorAll('.cs-action-btn--edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const action = btn.dataset.action;
-      const id = btn.dataset.id;
-      const record = allRequests.find(r => r.id === id);
-      if (!record) return;
-      
-      if (action === "view") {
-        openViewModal(record);
-      } else if (action === "archive") {
-        openConfirmModal("archive", id, record);
-      } else if (action === "delete") {
-        openConfirmModal("delete", id, record);
+      handleActionClick(btn.dataset.id);
+    });
+  });
+
+  // Document generation button
+  tbody.querySelectorAll('.cs-action-btn--doc').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const docId = btn.dataset.id;
+      const request = allRequests.find(req => req._docId === docId);
+      if (request) {
+        openDocumentGenerator(request);
+      } else {
+        showToastMessage('Request data not found', 'error');
       }
-    };
-    btn.addEventListener('click', btn._listener);
+    });
   });
 }
 
-// ── View Modal ────────────────────────────────────────────────
-function openViewModal(r) {
-  if (!viewModalDetails) return;
-  
-  viewModalDetails.innerHTML = `
-    <div class="skeleton-modal-details">
-      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
-      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
-      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value"></div></div>
-      <div class="skeleton-detail-row"><div class="skeleton-detail-label"></div><div class="skeleton-detail-value-full"></div></div>
-    </div>
-  `;
-  viewModal.classList.remove("hidden");
-  
-  setTimeout(() => {
-    let rescheduleHtml = '';
-    if (r.displayStatus === "Rescheduled") {
-      rescheduleHtml = `
-        <div class="history-detail-item full">
-          <label>Reschedule Reason</label>
-          <span>${escapeHtml(r.rescheduleReason || "No reason provided")}</span>
-        </div>
-        <div class="history-detail-item">
-          <label>Rescheduled By</label>
-          <span>${escapeHtml(r.rescheduledByName || r.rescheduledBy || "—")}</span>
-        </div>
-      `;
-    }
-    
-    viewModalDetails.innerHTML = `
-      <div class="history-detail-grid">
-        <div class="history-detail-item"><label>User ID</label><span>${escapeHtml(r.idNumber || r.userId || "—")}</span></div>
-        <div class="history-detail-item"><label>Full Name</label><span>${escapeHtml(r.fullname || "—")}</span></div>
-        <div class="history-detail-item"><label>Event</label><span>${escapeHtml(r.event || "—")}</span></div>
-        <div class="history-detail-item"><label>Venue</label><span>${escapeHtml(r.venue || "—")}</span></div>
-        <div class="history-detail-item"><label>Date</label><span>${formatDate(r.date)}</span></div>
-        <div class="history-detail-item"><label>Time</label><span>${escapeHtml(r.startTime || "—")} – ${escapeHtml(r.endTime || "—")}</span></div>
-        <div class="history-detail-item"><label>Status</label><span>${r.displayStatus || "—"}</span></div>
-        <div class="history-detail-item"><label>Items</label><span>${escapeHtml(r.item || "—")}</span></div>
-        <div class="history-detail-item full"><label>Description</label><span>${escapeHtml(r.eventDescription || "—")}</span></div>
-        ${rescheduleHtml}
-        <div class="history-detail-item"><label>Created</label><span>${formatTimestamp(r.createdAt)}</span></div>
-      </div>
-    `;
-  }, 200);
+/* ============================================================
+   AUTH MODALS
+   ============================================================ */
+const otlModal     = document.getElementById('otl-modal');
+const otlOverlay   = document.getElementById('otl-overlay');
+const otlUsername  = document.getElementById('otl-username');
+const otlPassword  = document.getElementById('otl-password');
+const otlError     = document.getElementById('otl-error');
+const otlLoginBtn  = document.getElementById('otl-login-btn');
+
+const pcregModal    = document.getElementById('pcreg-modal');
+const pcregOverlay  = document.getElementById('pcreg-overlay');
+const pcregPass     = document.getElementById('pcreg-pass');
+const pcregConfirm  = document.getElementById('pcreg-confirm');
+const pcregError    = document.getElementById('pcreg-error');
+const pcregEnterBtn = document.getElementById('pcreg-enter-btn');
+
+const pcentryModal    = document.getElementById('pcentry-modal');
+const pcentryOverlay  = document.getElementById('pcentry-overlay');
+const pcentryPass     = document.getElementById('pcentry-pass');
+const pcentryError    = document.getElementById('pcentry-error');
+const pcentryEnterBtn = document.getElementById('pcentry-enter-btn');
+
+function openOtlModal() {
+  if (otlUsername) otlUsername.value = '';
+  if (otlPassword) otlPassword.value = '';
+  if (otlError) otlError.classList.add('hidden');
+  if (otlModal) otlModal.classList.remove('hidden');
+  setTimeout(() => otlUsername?.focus(), 100);
 }
 
-function closeViewModal() {
-  viewModal.classList.add("hidden");
+function closeOtlModal() {
+  if (otlModal) otlModal.classList.add('hidden');
 }
 
-if (viewModalBack) viewModalBack.addEventListener("click", closeViewModal);
-if (viewModalOverlay) viewModalOverlay.addEventListener("click", closeViewModal);
+function openPcRegModal() {
+  if (pcregPass) pcregPass.value = '';
+  if (pcregConfirm) pcregConfirm.value = '';
+  if (pcregError) pcregError.classList.add('hidden');
+  if (pcregModal) pcregModal.classList.remove('hidden');
+  setTimeout(() => pcregPass?.focus(), 100);
+}
 
-// ── Confirmation Modal for Archive/Delete ─────────────────────
-function openConfirmModal(type, id, record) {
-  pendingAction = { type, id, record };
-  
-  const config = {
-    archive: { 
-      icon: "📦", 
-      title: "Archive Request", 
-      msg: `Move "${record.event || record.fullname}" to archive?` 
-    },
-    delete: { 
-      icon: "🗑️", 
-      title: "Delete Request", 
-      msg: `Permanently delete "${record.event || record.fullname}"? This cannot be undone.` 
+function closePcRegModal() {
+  if (pcregModal) pcregModal.classList.add('hidden');
+}
+
+function openPcEntryModal() {
+  if (pcentryPass) pcentryPass.value = '';
+  if (pcentryError) pcentryError.classList.add('hidden');
+  if (pcentryModal) pcentryModal.classList.remove('hidden');
+  setTimeout(() => pcentryPass?.focus(), 100);
+}
+
+function closePcEntryModal() {
+  if (pcentryModal) pcentryModal.classList.add('hidden');
+}
+
+if (otlOverlay)    otlOverlay.addEventListener('click', closeOtlModal);
+if (pcregOverlay)  pcregOverlay.addEventListener('click', closePcRegModal);
+if (pcentryOverlay) pcentryOverlay.addEventListener('click', closePcEntryModal);
+
+/* ============================================================
+   ONE TIME LOGIN
+   ============================================================ */
+async function performOtlLogin() {
+  const username = otlUsername?.value.trim() || '';
+  const password = otlPassword?.value.trim() || '';
+
+  if (!username || !password) {
+    if (otlError) {
+      otlError.textContent = 'Please enter both username and password.';
+      otlError.classList.remove('hidden');
     }
-  };
-  
-  const cfg = config[type];
-  if (cfg) {
-    if (confirmIcon) confirmIcon.textContent = cfg.icon;
-    if (confirmTitle) confirmTitle.textContent = cfg.title;
-    if (confirmMsg) confirmMsg.innerHTML = `<strong>${escapeHtml(record.fullname || record.idNumber)}</strong><br>${cfg.msg}`;
+    return;
   }
-  
-  confirmModal.classList.remove("hidden");
-}
 
-function closeConfirmModal() {
-  confirmModal.classList.add("hidden");
-  pendingAction = null;
-}
+  let originalButtonHTML = null;
+  if (otlLoginBtn) {
+    originalButtonHTML = otlLoginBtn.innerHTML;
+    showButtonLoading(otlLoginBtn, 'Verifying...');
+  }
+  if (otlError) otlError.classList.add('hidden');
 
-if (confirmCancel) confirmCancel.addEventListener("click", closeConfirmModal);
-if (confirmOverlay) confirmOverlay.addEventListener("click", closeConfirmModal);
+  try {
+    const adminQuery = query(
+      collection(db, 'Registered_Admin'),
+      where('username', '==', username),
+      where('password', '==', password),
+      where('status', '==', 'active')
+    );
+    const snap = await getDocs(adminQuery);
 
-// ── EXECUTE ARCHIVE/DELETE ACTION (FIXED) ─────────────────────
-if (confirmOk) {
-  confirmOk.addEventListener("click", async () => {
-    if (!pendingAction) {
-      console.log('No pending action');
+    if (snap.empty) {
+      if (otlError) {
+        otlError.textContent = 'Invalid username or password.';
+        otlError.classList.remove('hidden');
+      }
       return;
     }
-    
-    const { type, id, record } = pendingAction;
-    console.log('Executing action:', type, 'for request:', id, record.fullname);
-    
-    // Close modal immediately
-    closeConfirmModal();
-    
-    // Show loading state
-    confirmOk.disabled = true;
-    confirmOk.style.opacity = '0.7';
-    confirmOk.innerHTML = '<span style="display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.6s linear infinite; margin-right:8px;"></span> Processing...';
-    
-    try {
-      const requestRef = doc(db, COLLECTIONS.REQUESTS, id);
-      
-      if (type === "archive") {
-        console.log('Archiving request...');
-        await updateDoc(requestRef, { 
-          archived: true,
-          archivedAt: new Date()
-        });
-        
-        console.log('Archive successful');
-        
-        await logAdminAction({
-          actionType: "archive",
-          requestId: record.requestId || id,
-          adminId: currentAdmin?.id,
-          adminName: currentAdmin?.fullName || currentAdmin?.username,
-          details: `Archived request for ${record.fullname} — ${record.event}`
-        });
-        
-        showToast("Request archived successfully!", "success");
-      }
-      
-      if (type === "delete") {
-        console.log('Deleting request...');
-        await deleteDoc(requestRef);
-        console.log('Delete successful');
-        
-        await logAdminAction({
-          actionType: "delete",
-          requestId: record.requestId || id,
-          adminId: currentAdmin?.id,
-          adminName: currentAdmin?.fullName || currentAdmin?.username,
-          details: `Deleted request for ${record.fullname} — ${record.event}`
-        });
-        
-        showToast("Request deleted permanently", "success");
-      }
-      
-      // Reload the history page
-      await loadHistory();
-      
-    } catch (err) {
-      console.error("Action error:", err);
-      showToast("Operation failed: " + err.message, "error");
-    } finally {
-      confirmOk.disabled = false;
-      confirmOk.style.opacity = '1';
-      confirmOk.innerHTML = 'Confirm';
+
+    const adminDoc  = snap.docs[0];
+    csAdminDocId    = adminDoc.id;
+    const adminInfo = adminDoc.data();
+
+    sessionStorage.setItem('ft_cs_otl_done', 'true');
+    sessionStorage.setItem('ft_cs_admin_docid', csAdminDocId);
+    otlDone = true;
+
+    closeOtlModal();
+
+    if (adminInfo.changeStatsPasscode) {
+      csPasscode = adminInfo.changeStatsPasscode;
+      sessionStorage.setItem('ft_cs_passcode', csPasscode);
+      openPcEntryModal();
+    } else {
+      openPcRegModal();
     }
-  });
-}
 
-// ── Sidebar Toggle ────────────────────────────────────────────
-let sidebarOpen = window.innerWidth >= 768;
-
-function setSidebar(open) {
-  sidebarOpen = open;
-  if (!sidebar) return;
-
-  sidebar.classList.toggle('open', open);
-  if (sidebarOverlay) sidebarOverlay.classList.toggle('show', open && window.innerWidth < 768);
-  if (hamburger) hamburger.classList.toggle('open', open);
-  if (window.innerWidth >= 768) {
-    sidebar.classList.toggle('force-closed', !open);
-    if (dashLayout) dashLayout.classList.toggle('sidebar-closed', !open);
+  } catch (err) {
+    console.error('OTL Login error:', err);
+    if (otlError) {
+      otlError.textContent = 'Login failed. Please try again.';
+      otlError.classList.remove('hidden');
+    }
+  } finally {
+    if (otlLoginBtn) restoreButton(otlLoginBtn, 'Login', originalButtonHTML);
   }
 }
 
-if (hamburger) hamburger.addEventListener("click", () => setSidebar(!sidebarOpen));
-if (sidebarOverlay) sidebarOverlay.addEventListener("click", () => setSidebar(false));
-window.addEventListener('resize', () => {
-  if (window.innerWidth >= 768 && sidebarOverlay) sidebarOverlay.classList.remove('show');
-});
-setSidebar(sidebarOpen);
+if (otlLoginBtn) otlLoginBtn.addEventListener('click', performOtlLogin);
+if (otlPassword) otlPassword.addEventListener('keydown', e => { if (e.key === 'Enter') performOtlLogin(); });
 
-// History submenu toggle
-if (historyArrow) {
-  historyArrow.addEventListener("click", (e) => {
-    e.stopPropagation();
-    historyMenu.classList.toggle("expanded");
-    historySub.classList.toggle("open");
-  });
-}
-if (historyMenu) {
-  historyMenu.addEventListener("click", (e) => {
-    if (e.target === historyArrow || (historyArrow && historyArrow.contains(e.target))) return;
-    historyMenu.classList.toggle("expanded");
-    historySub.classList.toggle("open");
-  });
-}
-if (historySub) historySub.classList.add("open");
-if (historyMenu) historyMenu.classList.add("expanded");
+/* ============================================================
+   PASSCODE REGISTRATION
+   ============================================================ */
+async function performPcRegistration() {
+  const pass    = pcregPass?.value.trim()    || '';
+  const confirm = pcregConfirm?.value.trim() || '';
 
-// ── Profile Dropdown ──────────────────────────────────────────
-if (profileTrigger) {
-  profileTrigger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (dropdownMenu) dropdownMenu.classList.toggle("show");
-  });
-  document.addEventListener("click", () => {
-    if (dropdownMenu) dropdownMenu.classList.remove("show");
-  });
-}
-
-// ── Logout ────────────────────────────────────────────────────
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", () => {
-    if (logoutModal) logoutModal.classList.remove("hidden");
-  });
-}
-if (modalCancel) {
-  modalCancel.addEventListener("click", () => {
-    if (logoutModal) logoutModal.classList.add("hidden");
-  });
-}
-if (modalConfirm) {
-  modalConfirm.addEventListener("click", async () => {
-    await signOut(auth);
-    sessionStorage.clear();
-    window.location.href = "../Auth/auth.login.html";
-  });
-}
-if (modalOverlay) {
-  modalOverlay.addEventListener("click", () => {
-    if (logoutModal) logoutModal.classList.add("hidden");
-  });
-}
-
-// ── Fullscreen Toggle ─────────────────────────────────────────
-const topbarExpand = document.getElementById("topbar-expand");
-if (topbarExpand) {
-  topbarExpand.addEventListener("click", async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
+  if (!pass || !confirm) {
+    if (pcregError) {
+      pcregError.textContent = 'Please fill in both passcode fields.';
+      pcregError.classList.remove('hidden');
     }
+    return;
+  }
+
+  if (pass.length < 4) {
+    if (pcregError) {
+      pcregError.textContent = 'Passcode must be at least 4 characters.';
+      pcregError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  if (pass !== confirm) {
+    if (pcregError) {
+      pcregError.textContent = 'Passcodes do not match.';
+      pcregError.classList.remove('hidden');
+    }
+    if (pcregConfirm) pcregConfirm.value = '';
+    setTimeout(() => pcregConfirm?.focus(), 50);
+    return;
+  }
+
+  let originalButtonHTML = null;
+  if (pcregEnterBtn) {
+    originalButtonHTML = pcregEnterBtn.innerHTML;
+    showButtonLoading(pcregEnterBtn, 'Saving...');
+  }
+  if (pcregError) pcregError.classList.add('hidden');
+
+  try {
+    await updateDoc(doc(db, COLLECTIONS.REGISTERED_ADMIN, csAdminDocId), {
+      changeStatsPasscode:    pass,
+      passcodeRegisteredAt:   serverTimestamp()
+    });
+
+    csPasscode = pass;
+    sessionStorage.setItem('ft_cs_passcode', csPasscode);
+
+    closePcRegModal();
+    showToastMessage('Passcode registered successfully.', 'success');
+    openDetail(pendingDocId);
+
+  } catch (err) {
+    console.error('Passcode registration error:', err);
+    if (pcregError) {
+      pcregError.textContent = 'Failed to save passcode. Try again.';
+      pcregError.classList.remove('hidden');
+    }
+  } finally {
+    if (pcregEnterBtn) restoreButton(pcregEnterBtn, 'Register', originalButtonHTML);
+  }
+}
+
+if (pcregEnterBtn) pcregEnterBtn.addEventListener('click', performPcRegistration);
+if (pcregConfirm) pcregConfirm.addEventListener('keydown', e => { if (e.key === 'Enter') performPcRegistration(); });
+
+/* ============================================================
+   PASSCODE ENTRY
+   ============================================================ */
+async function performPcEntry() {
+  const entered = pcentryPass?.value.trim() || '';
+
+  if (!entered) {
+    if (pcentryError) {
+      pcentryError.textContent = 'Please enter your passcode.';
+      pcentryError.classList.remove('hidden');
+    }
+    return;
+  }
+
+  let originalButtonHTML = null;
+  if (pcentryEnterBtn) {
+    originalButtonHTML = pcentryEnterBtn.innerHTML;
+    showButtonLoading(pcentryEnterBtn, 'Verifying...');
+  }
+  if (pcentryError) pcentryError.classList.add('hidden');
+
+  try {
+    if (!csPasscode && csAdminDocId) {
+      const adminSnap = await getDoc(doc(db, 'Registered_Admin', csAdminDocId));
+      if (adminSnap.exists()) {
+        csPasscode = adminSnap.data().changeStatsPasscode || null;
+        if (csPasscode) sessionStorage.setItem('ft_cs_passcode', csPasscode);
+      }
+    }
+
+    if (entered === csPasscode) {
+      closePcEntryModal();
+      openDetail(pendingDocId);
+    } else {
+      if (pcentryError) {
+        pcentryError.textContent = 'Incorrect passcode. Try again.';
+        pcentryError.classList.remove('hidden');
+      }
+      if (pcentryPass) pcentryPass.value = '';
+      setTimeout(() => pcentryPass?.focus(), 50);
+    }
+  } catch (err) {
+    console.error('Passcode entry error:', err);
+    if (pcentryError) {
+      pcentryError.textContent = 'Verification failed. Try again.';
+      pcentryError.classList.remove('hidden');
+    }
+  } finally {
+    if (pcentryEnterBtn) restoreButton(pcentryEnterBtn, 'Verify', originalButtonHTML);
+  }
+}
+
+if (pcentryEnterBtn) pcentryEnterBtn.addEventListener('click', performPcEntry);
+if (pcentryPass) pcentryPass.addEventListener('keydown', e => { if (e.key === 'Enter') performPcEntry(); });
+
+/* ============================================================
+   HANDLE ACTION CLICK
+   ============================================================ */
+function handleActionClick(docId) {
+  pendingDocId = docId;
+
+  if (!otlDone) {
+    openOtlModal();
+  } else {
+    openPcEntryModal();
+  }
+}
+
+/* ============================================================
+   DETAIL PANEL
+   ============================================================ */
+const detailOverlay = document.getElementById('detail-overlay');
+const detailPanel   = document.getElementById('detail-panel');
+const detailInfo    = document.getElementById('detail-info');
+const reasonInput   = document.getElementById('reschedule-reason');
+const btnReschedule = document.getElementById('btn-reschedule');
+const detailBackBtn = document.getElementById('detail-back-btn');
+
+function openDetail(docId) {
+  showSkeletonDetail();
+
+  if (detailOverlay) detailOverlay.classList.remove('hidden');
+  if (detailPanel)   detailPanel.classList.remove('hidden');
+
+  const r = allRequests.find(req => req._docId === docId);
+  if (!r) {
+    setTimeout(() => {
+      const retryReq = allRequests.find(req => req._docId === docId);
+      if (retryReq) {
+        populateDetailInfo(retryReq);
+      } else {
+        if (detailInfo) detailInfo.innerHTML = '<div class="detail-info-row"><span class="detail-info-value">Request data not found</span></div>';
+      }
+    }, 500);
+    return;
+  }
+
+  populateDetailInfo(r);
+}
+
+function populateDetailInfo(r) {
+  activeDocId = r._docId;
+  activeData  = r;
+  if (reasonInput) reasonInput.value = '';
+
+  const uid  = r.idNumber || r.userId || '';
+  const user = userCache.get(uid);
+
+  if (detailInfo) {
+    detailInfo.innerHTML = `
+      ${infoRow('Request ID',    r.requestId || r._docId)}
+      ${infoRow('User ID',       uid || '—')}
+      ${infoRow('First Name',    user?.firstName  || r._firstName  || '—')}
+      ${infoRow('Middle Name',   user?.middleName || r._middleName || '—')}
+      ${infoRow('Last Name',     user?.lastName   || r._lastName   || '—')}
+      ${infoRow('Full Name',     user?.fullName   || r._fullName   || '—')}
+      ${infoRow('Position',      user?.position   || r._position   || '—')}
+      ${infoRow('Event',         r.event          || '—')}
+      ${infoRow('Description',   r.eventDescription || '—')}
+      ${infoRow('Venue',         r.venue          || '—')}
+      ${infoRow('Date',          formatDate(r.date))}
+      ${infoRow('Start Time',    r.startTime      || '—')}
+      ${infoRow('End Time',      r.endTime        || '—')}
+      ${infoRow('Items/Equipment', r.item         || '—')}
+      ${infoRow('Status',        r.status         || '—')}
+    `;
+  }
+
+  if (reasonInput) {
+    reasonInput.disabled    = false;
+    reasonInput.placeholder = 'Enter reason for rescheduling…';
+    reasonInput.value       = '';
+  }
+
+  if (btnReschedule) {
+    btnReschedule.disabled    = false;
+    btnReschedule.textContent = 'Reschedule';
+  }
+
+  setTimeout(() => reasonInput?.focus(), 100);
+}
+
+function infoRow(label, value) {
+  return `
+    <div class="detail-info-row">
+      <span class="detail-info-label">${escapeHtml(label)}</span>
+      <span class="detail-info-value">${escapeHtml(String(value ?? '—'))}</span>
+    </div>
+  `;
+}
+
+function closeDetail() {
+  if (detailOverlay) detailOverlay.classList.add('hidden');
+  if (detailPanel)   detailPanel.classList.add('hidden');
+  activeDocId = null;
+  activeData  = null;
+}
+
+if (detailBackBtn) detailBackBtn.addEventListener('click', closeDetail);
+if (detailOverlay) detailOverlay.addEventListener('click', closeDetail);
+
+/* ============================================================
+   RESCHEDULE CONFIRMATION
+   ============================================================ */
+const confirmModalElem  = document.getElementById('confirm-modal');
+const confirmOverlayElem = document.getElementById('confirm-overlay');
+const confirmOkBtn      = document.getElementById('confirm-ok');
+const confirmCancelBtn  = document.getElementById('confirm-cancel');
+
+if (btnReschedule) {
+  btnReschedule.addEventListener('click', () => {
+    const reason = reasonInput?.value.trim() || '';
+    if (!reason) {
+      if (reasonInput) {
+        reasonInput.style.borderColor = '#dc2626';
+        reasonInput.placeholder = '⚠ Please enter a reason first.';
+        reasonInput.focus();
+        setTimeout(() => {
+          if (reasonInput) {
+            reasonInput.style.borderColor = '';
+            reasonInput.placeholder = 'Enter reason for rescheduling…';
+          }
+        }, 2500);
+      }
+      return;
+    }
+    if (confirmModalElem) confirmModalElem.classList.remove('hidden');
   });
 }
 
-// Close sidebar on nav click (mobile)
+function closeConfirm() {
+  if (confirmModalElem) confirmModalElem.classList.add('hidden');
+}
+
+if (confirmCancelBtn)  confirmCancelBtn.addEventListener('click', closeConfirm);
+if (confirmOverlayElem) confirmOverlayElem.addEventListener('click', closeConfirm);
+
+if (confirmOkBtn) {
+  confirmOkBtn.addEventListener('click', async () => {
+    closeConfirm();
+    await performReschedule();
+  });
+}
+
+/* ============================================================
+   PERFORM RESCHEDULE
+   ============================================================ */
+async function performReschedule() {
+  if (!activeDocId || !activeData) return;
+
+  const reason    = reasonInput?.value.trim() || '';
+  const adminId   = sessionStorage.getItem('ft_admin_id')       || '';
+  const adminName = sessionStorage.getItem('ft_admin_username')  ||
+                    sessionStorage.getItem('ft_admin_fullname')  || 'Admin';
+
+  // Resolve the user ID from the active request data
+  const userId = activeData.userId || activeData.idNumber || '';
+
+  let originalButtonHTML = null;
+  if (btnReschedule) {
+    originalButtonHTML = btnReschedule.innerHTML;
+    showButtonLoading(btnReschedule, 'Saving...');
+  }
+
+  try {
+    // 1. Update the request document status to Rescheduled
+    await updateDoc(doc(db, 'requests', activeDocId), {
+      status:            'Rescheduled',
+      rescheduleReason:  reason,
+      rescheduledAt:     serverTimestamp(),
+      rescheduledBy:     adminId,
+      rescheduledByName: adminName,
+    });
+
+    console.log('✅ Rescheduled:', activeDocId);
+
+    // 2. Send notification to the user whose request was rescheduled
+    try {
+      const notificationId = await sendRescheduleNotification(
+        userId,
+        activeDocId,
+        activeData,
+        reason,
+        adminName
+      );
+      if (notificationId) {
+        // Stamp the notification ID back onto the request so mobile clients can look it up
+        await updateDoc(doc(db, 'requests', activeDocId), {
+          rescheduleNotificationId: notificationId,
+        });
+      }
+      console.log('✅ Reschedule notification sent, id:', notificationId);
+    } catch (notifErr) {
+      // Non-fatal — the reschedule itself succeeded; just log the error
+      console.error('Notification send error:', notifErr);
+    }
+
+    closeDetail();
+    showToastMessage('Request rescheduled and user notified.', 'success');
+
+  } catch (err) {
+    console.error('Reschedule error:', err);
+    showToastMessage('Failed to reschedule: ' + err.message, 'error');
+  } finally {
+    if (btnReschedule) restoreButton(btnReschedule, 'Reschedule', originalButtonHTML);
+  }
+}
+
+/* ============================================================
+   SEND RESCHEDULE NOTIFICATION TO USER
+   Writes to the root Notification collection AND to the
+   user's subcollection so all clients (web/mobile) pick it up.
+   ============================================================ */
+async function sendRescheduleNotification(userId, docId, requestData, reason, adminName) {
+  const eventLabel = requestData.event  || 'your event';
+  const venueLabel = requestData.venue  || '';
+  const dateLabel  = requestData.date   || '';
+
+  const title = 'Your Request Has Been Rescheduled';
+
+  const bodyParts = [
+    `Your approved request for "${eventLabel}"`,
+    venueLabel ? `at ${venueLabel}` : '',
+    dateLabel  ? `on ${dateLabel}` : '',
+    `has been rescheduled by ${adminName}.`,
+    reason ? `Reason: ${reason}` : '',
+  ].filter(Boolean);
+
+  const body = bodyParts.join(' ');
+
+  const payload = {
+    userId:            userId || null,
+    title,
+    body,
+    read:              false,
+    createdAt:         serverTimestamp(),
+    type:              'request_rescheduled',
+    requestId:         docId,
+    status:            'Rescheduled',
+    rescheduleReason:  reason  || '',
+    rescheduledBy:     requestData.rescheduledBy     || '',
+    rescheduledByName: adminName,
+    event:             eventLabel,
+    venue:             venueLabel,
+    date:              dateLabel,
+  };
+
+  // Primary: root-level Notification collection (all clients listen here)
+  const notificationRef = doc(collection(db, COLLECTIONS.NOTIFICATION));
+  const notificationId  = notificationRef.id;
+  const fullPayload     = { ...payload, notificationId };
+
+  await setDoc(notificationRef, fullPayload);
+  console.debug('Notification written to root collection:', notificationId);
+
+  // Secondary: per-user subcollection (mobile app deep links)
+  if (userId) {
+    try {
+      await addDoc(
+        collection(db, COLLECTIONS.REGISTERED_USERS, userId, 'Notification'),
+        fullPayload
+      );
+      console.debug('Notification also stored under user:', userId);
+    } catch (err) {
+      // Per-user write is best-effort
+      console.debug('Per-user notification write failed:', err);
+    }
+  }
+
+  return notificationId;
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    return '&#39;';
+  });
+}
+
+// Close sidebar on mobile when clicking a link
 document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   link.addEventListener('click', () => {
     if (window.innerWidth < 768) {
@@ -797,4 +1112,4 @@ document.querySelectorAll('.nav-item, .nav-child').forEach(link => {
   });
 });
 
-console.log('History page initialized');
+console.log('Change Stats page loaded successfully');
